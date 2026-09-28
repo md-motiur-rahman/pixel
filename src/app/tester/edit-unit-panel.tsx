@@ -1,16 +1,25 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { findUnitForEdit, updateUnitDetails, type EditableUnit } from "./edit-actions";
+import { searchBrands, searchModels } from "./search-actions";
+import { Combobox, type ComboboxOption } from "@/components/combobox";
 import { Button, Card, Field, Input, Message, Select } from "@/components/ui";
 import { CameraScanButton } from "@/components/camera-scan-button";
 
 type Grade = { id: string; code: string; label: string };
 
 export function EditUnitPanel({ grades }: { grades: Grade[] }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [unit, setUnit] = useState<EditableUnit | null>(null);
+  const [brand, setBrand] = useState<ComboboxOption | null>(null);
+  const [brandName, setBrandName] = useState("");
+  const [model, setModel] = useState<ComboboxOption | null>(null);
+  const [modelName, setModelName] = useState("");
+  const [color, setColor] = useState("");
   const [serialNumber, setSerialNumber] = useState("");
   const [note, setNote] = useState("");
   const [gradeId, setGradeId] = useState("");
@@ -18,6 +27,9 @@ export function EditUnitPanel({ grades }: { grades: Grade[] }) {
   const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  const effectiveBrandName = brand?.label ?? brandName;
+  const effectiveModelName = model?.label ?? modelName;
   // A camera scan and a manual "Find" click can both be in flight at once;
   // if the older one resolves last, it must not overwrite the newer result.
   const searchSeqRef = useRef(0);
@@ -37,6 +49,11 @@ export function EditUnitPanel({ grades }: { grades: Grade[] }) {
         return;
       }
       setUnit(result.unit);
+      setBrand({ id: result.unit.brandId, label: result.unit.brand });
+      setBrandName(result.unit.brand);
+      setModel({ id: result.unit.modelId, label: result.unit.model });
+      setModelName(result.unit.model);
+      setColor(result.unit.color);
       setSerialNumber(result.unit.serialNumber);
       setNote(result.unit.note ?? "");
       setGradeId(result.unit.gradeId);
@@ -60,12 +77,26 @@ export function EditUnitPanel({ grades }: { grades: Grade[] }) {
     setError(null);
 
     try {
-      const result = await updateUnitDetails(unit.id, { serialNumber, note, gradeId });
+      const result = await updateUnitDetails(unit.id, {
+        brandId: brand?.id ?? null,
+        brandName: effectiveBrandName,
+        modelId: model?.id ?? null,
+        modelName: effectiveModelName,
+        color,
+        gradeId,
+        serialNumber,
+        note,
+      });
       if (!result.ok) {
         setError(result.error);
         return;
       }
       setUnit(result.unit);
+      setBrand({ id: result.unit.brandId, label: result.unit.brand });
+      setBrandName(result.unit.brand);
+      setModel({ id: result.unit.modelId, label: result.unit.model });
+      setModelName(result.unit.model);
+      setColor(result.unit.color);
       setSuccess("Saved.");
     } catch {
       setError("Could not save — check your connection and try again.");
@@ -94,6 +125,11 @@ export function EditUnitPanel({ grades }: { grades: Grade[] }) {
             setOpen(false);
             setUnit(null);
             setSearch("");
+            setBrand(null);
+            setBrandName("");
+            setModel(null);
+            setModelName("");
+            setColor("");
             setError(null);
             setSuccess(null);
           }}
@@ -129,9 +165,54 @@ export function EditUnitPanel({ grades }: { grades: Grade[] }) {
 
       {unit && (
         <form onSubmit={handleSave} className="mt-4 space-y-4">
-          <p className="text-sm text-neutral-500">
-            {unit.brand} {unit.model} — {unit.color}
-          </p>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm text-neutral-500">Serial {unit.serialNumber}</p>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => router.push(`/tester/print/${unit.id}`)}
+            >
+              Print label
+            </Button>
+          </div>
+
+          <Combobox
+            key={`brand-${unit.id}`}
+            label="Brand"
+            placeholder="e.g. Canon"
+            value={brand}
+            onSelect={(opt) => {
+              setBrand(opt);
+              setModel(null);
+              setModelName("");
+            }}
+            onCreateNew={(name) => {
+              setBrand(null);
+              setBrandName(name);
+              setModel(null);
+              setModelName("");
+            }}
+            search={searchBrands}
+          />
+
+          <Combobox
+            key={`model-${unit.id}-${brand?.id ?? brandName}`}
+            label="Model"
+            placeholder="e.g. PowerShot SX220IS"
+            disabled={!effectiveBrandName}
+            value={model}
+            onSelect={setModel}
+            onCreateNew={(name) => {
+              setModel(null);
+              setModelName(name);
+            }}
+            search={(q) => (brand?.id ? searchModels(brand.id, q) : Promise.resolve([]))}
+          />
+
+          <Field label="Color">
+            <Input type="text" required value={color} onChange={(e) => setColor(e.target.value)} />
+          </Field>
 
           <Field label="Grade">
             <Select value={gradeId} onChange={(e) => setGradeId(e.target.value)}>
@@ -153,7 +234,11 @@ export function EditUnitPanel({ grades }: { grades: Grade[] }) {
 
           {success && <Message variant="success">{success}</Message>}
 
-          <Button type="submit" disabled={saving} className="w-full">
+          <Button
+            type="submit"
+            disabled={saving || !effectiveBrandName || !effectiveModelName || !color || !serialNumber}
+            className="w-full"
+          >
             {saving ? "Saving…" : "Save changes"}
           </Button>
         </form>

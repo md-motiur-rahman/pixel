@@ -13,19 +13,46 @@ export default function SetPasswordPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    // Created here (and again in handleSubmit below), not at the top of the
-    // component, so this never runs during the server-side render pass
-    // (including at build time) — only client-side, after mount.
-    const supabase = createClient();
-    // The invite link's tokens are in the URL; the browser client picks them
-    // up on load and turns them into a session automatically.
-    supabase.auth.getSession().then(({ data }) => {
+    async function establishSession() {
+      const supabase = createClient();
+
+      // Supabase's default invite/reset email (the free-tier one — editing
+      // templates requires custom SMTP) links here with the session tokens
+      // in the URL's #hash fragment, not a query param, and this app's
+      // PKCE-flow client doesn't auto-detect that on its own. Read it
+      // ourselves and hand it directly to the client.
+      const hashParams = new URLSearchParams(window.location.hash.slice(1));
+      const accessToken = hashParams.get("access_token");
+      const refreshToken = hashParams.get("refresh_token");
+
+      if (accessToken && refreshToken) {
+        const { error } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
+        // Drop the tokens from the visible URL/history now that they're used.
+        window.history.replaceState(null, "", window.location.pathname + window.location.search);
+        if (!error) {
+          setReady(true);
+          return;
+        }
+      }
+
+      // No hash tokens — maybe a session was already set up server-side via
+      // /auth/confirm instead (the path used if custom SMTP + a customized
+      // template are configured later).
+      const { data } = await supabase.auth.getSession();
       if (data.session) {
         setReady(true);
       } else {
         setError("This invite link is invalid or has expired. Ask your admin to send a new one.");
       }
-    });
+    }
+
+    // Deferred a tick so this is a callback invocation, not a direct
+    // effect-body call.
+    const timeoutId = setTimeout(() => void establishSession(), 0);
+    return () => clearTimeout(timeoutId);
   }, []);
 
   async function handleSubmit(e: React.FormEvent) {

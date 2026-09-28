@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 const ROLE_HOME: Record<string, string> = {
-  admin: "/admin",
+  admin: "/admin/inventory",
   tester: "/tester",
   dispatcher: "/dispatcher",
   checker: "/checker",

@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { Role } from "@/types/database";
 
 const ROLE_HOME: Record<Role, string> = {
-  admin: "/admin",
+  admin: "/admin/inventory",
   tester: "/tester",
   dispatcher: "/dispatcher",
   checker: "/checker",

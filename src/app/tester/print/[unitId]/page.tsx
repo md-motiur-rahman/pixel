@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import QRCode from "qrcode";
 import { createClient } from "@/lib/supabase/server";
 import { PrintActions } from "./print-actions";
+import { PrintableLabel } from "./printable-label";
 
 export default async function PrintLabelPage({
   params,
@@ -40,7 +41,7 @@ export default async function PrintLabelPage({
   const qrDataUrl = await QRCode.toDataURL(unit.id, { margin: 1, width: 320 });
 
   return (
-    <div className="min-h-dvh bg-neutral-50 px-4 py-8 print:bg-white print:p-0">
+    <div className="min-h-dvh bg-neutral-50 px-4 py-8 print:min-h-0 print:bg-white print:p-0">
       <div className="mx-auto max-w-sm print:hidden">
         <div className="flex items-center gap-2 text-emerald-700">
           <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5 shrink-0">
@@ -61,25 +62,15 @@ export default async function PrintLabelPage({
         </div>
       </div>
 
-      {/* Label — sized for a 2in x 2in direct-thermal sticker. */}
-      <div
-        className="mx-auto mt-6 flex w-[2in] flex-col items-center justify-center gap-1 rounded-lg border border-neutral-200 bg-white p-2 text-center shadow-sm print:mt-0 print:rounded-none print:border-none print:shadow-none"
-        style={{ height: "2in" }}
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={qrDataUrl} alt="" className="h-[1.3in] w-[1.3in]" />
-        <p className="text-[10px] font-semibold leading-tight">{brandName}</p>
-        <p className="text-[10px] font-semibold leading-tight">{labelLine1}</p>
-        <p className="text-[10px] leading-tight">{labelLine2}</p>
-        <p className="text-[8px] leading-tight text-neutral-500">SN {unit.serial_number}</p>
+      <div className="mt-6 print:mt-0">
+        <PrintableLabel
+          qrDataUrl={qrDataUrl}
+          brandName={brandName}
+          labelLine1={labelLine1}
+          labelLine2={labelLine2}
+          serialNumber={unit.serial_number}
+        />
       </div>
-
-      <style>{`
-        @page { size: 2in 2in; margin: 0; }
-        @media print {
-          body { margin: 0; }
-        }
-      `}</style>
     </div>
   );
 }

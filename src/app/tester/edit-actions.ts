@@ -6,7 +6,9 @@ import { findOrCreate } from "@/lib/find-or-create";
 
 export type EditableUnit = {
   id: string;
+  brandId: string;
   brand: string;
+  modelId: string;
   model: string;
   color: string;
   gradeId: string;
@@ -20,7 +22,7 @@ type FindResult = { ok: true; unit: EditableUnit } | { ok: false; error: string 
 
 const SELECT = `id, serial_number, note,
   sku_lines ( model_variant_id, grade_id, grades ( code ),
-    model_variants ( color, models ( name, brands ( name ) ) ) )`;
+    model_variants ( color, models ( id, name, brand_id, brands ( name ) ) ) )`;
 
 function toEditableUnit(data: {
   id: string;
@@ -32,11 +34,16 @@ function toEditableUnit(data: {
     model_variant_id: string;
     grade_id: string;
     grades: { code: string };
-    model_variants: { color: string; models: { name: string; brands: { name: string } } };
+    model_variants: {
+      color: string;
+      models: { id: string; name: string; brand_id: string; brands: { name: string } };
+    };
   };
   return {
     id: data.id,
+    brandId: skuLine.model_variants.models.brand_id,
     brand: skuLine.model_variants.models.brands.name,
+    modelId: skuLine.model_variants.models.id,
     model: skuLine.model_variants.models.name,
     color: skuLine.model_variants.color,
     gradeId: skuLine.grade_id,
@@ -71,9 +78,20 @@ export async function findUnitForEdit(rawInput: string): Promise<FindResult> {
   return { ok: false, error: "No camera found for that QR code or serial number." };
 }
 
+export type UpdateUnitDetailsInput = {
+  brandId: string | null;
+  brandName: string;
+  modelId: string | null;
+  modelName: string;
+  color: string;
+  gradeId: string;
+  serialNumber: string;
+  note: string;
+};
+
 export async function updateUnitDetails(
   unitId: string,
-  input: { serialNumber: string; note: string; gradeId: string }
+  input: UpdateUnitDetailsInput
 ): Promise<FindResult> {
   const supabase = await createClient();
   const {
@@ -81,23 +99,57 @@ export async function updateUnitDetails(
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Not signed in." };
 
+  const brandName = input.brandName.trim();
+  const modelName = input.modelName.trim();
+  const color = input.color.trim();
   const serialNumber = input.serialNumber.trim();
-  if (!serialNumber) return { ok: false, error: "Serial number is required." };
 
-  // Load the unit's own current model_variant_id server-side rather than
-  // trusting a client-supplied value — a caller passing an unrelated variant
-  // id here would otherwise silently reclassify this physical camera as a
-  // completely different brand/model/color.
-  const { data: currentUnit, error: currentUnitError } = await supabase
-    .from("units")
-    .select("sku_lines ( model_variant_id )")
-    .eq("id", unitId)
-    .maybeSingle();
-  if (currentUnitError) return { ok: false, error: currentUnitError.message };
-  if (!currentUnit) return { ok: false, error: "This camera no longer exists." };
-  const modelVariantId = (currentUnit.sku_lines as unknown as { model_variant_id: string } | null)
-    ?.model_variant_id;
-  if (!modelVariantId) return { ok: false, error: "Could not determine this camera's current model." };
+  if (!brandName || !modelName || !color || !input.gradeId || !serialNumber) {
+    return { ok: false, error: "All fields except note are required." };
+  }
+
+  // Same find-or-create cascade as creating a unit — a tester correcting a
+  // mistyped brand/model/color here goes through the identical catalog path
+  // as first logging the camera, rather than trusting a raw variant id.
+  let brandId = input.brandId;
+  if (!brandId) {
+    const result = await findOrCreate(
+      async () =>
+        supabase.from("brands").select("id").ilike("name", escapeLikePattern(brandName)).maybeSingle(),
+      async () => supabase.from("brands").insert({ name: brandName }).select("id").single()
+    );
+    if (!result.ok) return { ok: false, error: `Could not save brand: ${result.error}` };
+    brandId = result.id;
+  }
+
+  let modelId = input.modelId;
+  if (!modelId) {
+    const result = await findOrCreate(
+      async () =>
+        supabase
+          .from("models")
+          .select("id")
+          .eq("brand_id", brandId)
+          .ilike("name", escapeLikePattern(modelName))
+          .maybeSingle(),
+      async () => supabase.from("models").insert({ brand_id: brandId, name: modelName }).select("id").single()
+    );
+    if (!result.ok) return { ok: false, error: `Could not save model: ${result.error}` };
+    modelId = result.id;
+  }
+
+  const variantResult = await findOrCreate(
+    async () =>
+      supabase
+        .from("model_variants")
+        .select("id")
+        .eq("model_id", modelId)
+        .ilike("color", escapeLikePattern(color))
+        .maybeSingle(),
+    async () => supabase.from("model_variants").insert({ model_id: modelId, color }).select("id").single()
+  );
+  if (!variantResult.ok) return { ok: false, error: `Could not save color: ${variantResult.error}` };
+  const modelVariantId = variantResult.id;
 
   const skuLineResult = await findOrCreate(
     async () =>

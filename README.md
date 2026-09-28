@@ -21,17 +21,12 @@ Internal webapp for testing, dispatching, and stock-counting camera inventory.
      Leave it as the plain base URL — no path needed.
    - Add `http://localhost:3000/set-password` to **Redirect URLs** (and your
      production domain's `/set-password` once deployed).
-5. In **Authentication → Email Templates**, edit both the **Invite user** and
-   **Reset Password** templates: find the link that reads `{{ .ConfirmationURL }}`
-   and replace it with:
-   ```
-   {{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type={{ .Type }}&next=/set-password
-   ```
-   This is required. Supabase's default template links only work with the older
-   "implicit flow"; this app's Supabase client uses the newer PKCE flow (via
-   `@supabase/ssr`), which needs a `token_hash` link that a server route
-   (`/auth/confirm`) exchanges for a session — otherwise every invite/reset link
-   will land on `/set-password` saying "invalid or expired" even though it isn't.
+5. Nothing else needed here — invite and password-reset emails work out of the
+   box with Supabase's free shared email sender and its default templates. (If
+   you later set up **custom SMTP**, Supabase unlocks template editing; a
+   customized template can point at `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type={{ .Type }}&next=/set-password`
+   instead of the default `{{ .ConfirmationURL }}` — the app supports both, see
+   `/set-password`'s comments — but it's optional, not required.)
 6. Copy `.env.local.example` to `.env.local` and fill in all three values:
    ```
    NEXT_PUBLIC_SUPABASE_URL=...
@@ -44,7 +39,12 @@ Internal webapp for testing, dispatching, and stock-counting camera inventory.
    npm run dev
    ```
 8. **Bootstrap the first admin** (staff are normally created via the in-app invite
-   form on `/admin`, but that needs an admin to already exist first):
+   form on `/admin`, but that needs an admin to already exist first). The Supabase
+   dashboard's own "Invite user" button doesn't let you set a custom redirect the
+   way our in-app form does, so it needs the project's default **Site URL** pointed
+   at `/set-password` for this one bootstrap invite only:
+   - In **Authentication → URL Configuration**, temporarily set **Site URL** to
+     `http://localhost:3000/set-password`.
    - Go to **Authentication → Users → Invite user**, enter your own email, and send it.
    - Open the email, click the link — it lands on `/set-password` in the app. Set a
      password; you'll be signed in afterward.
@@ -52,6 +52,10 @@ Internal webapp for testing, dispatching, and stock-counting camera inventory.
      ```sql
      update profiles set role = 'admin' where email = 'your@email.com';
      ```
+   - Change **Site URL** back to `http://localhost:3000` (or your production domain
+     once deployed) — the in-app invite form always sends its own exact redirect
+     regardless of this setting, but it shouldn't stay pointed at `/set-password`
+     permanently since other auth emails fall back to it too.
    - Sign in again — you'll land on `/admin`. From here on, invite every other
      tester/dispatcher/checker/admin from that page; no one else needs SQL access.
 

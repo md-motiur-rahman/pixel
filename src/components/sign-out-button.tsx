@@ -4,13 +4,14 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui";
 
-export function SignOutButton() {
+export function SignOutButton({ className }: { className?: string }) {
   const router = useRouter();
 
   return (
     <Button
       variant="ghost"
       size="sm"
+      className={className}
       onClick={async () => {
         // Created here, not at the top of the component, so this never runs
         // during the server-side render pass (including at build time) —
