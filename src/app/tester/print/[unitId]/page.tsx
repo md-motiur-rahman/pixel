@@ -3,6 +3,7 @@ import QRCode from "qrcode";
 import { createClient } from "@/lib/supabase/server";
 import { PrintActions } from "./print-actions";
 import { PrintableLabel } from "./printable-label";
+import { DirectPrintButton } from "./direct-print-button";
 
 export default async function PrintLabelPage({
   params,
@@ -57,8 +58,15 @@ export default async function PrintLabelPage({
           {brandName} {modelName} {color} — Grade {gradeCode}, serial {unit.serial_number}
           {unit.note ? `, note: ${unit.note}` : ""}
         </p>
-        <div className="mt-4">
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-start">
           <PrintActions />
+          <DirectPrintButton
+            unitId={unit.id}
+            brandName={brandName}
+            labelLine1={labelLine1}
+            labelLine2={labelLine2}
+            serialNumber={unit.serial_number}
+          />
         </div>
       </div>
 
