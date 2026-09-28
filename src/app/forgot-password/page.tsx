@@ -6,7 +6,6 @@ import { createClient } from "@/lib/supabase/client";
 import { Button, Card, Field, Input, Message } from "@/components/ui";
 
 export default function ForgotPasswordPage() {
-  const supabase = createClient();
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -15,6 +14,10 @@ export default function ForgotPasswordPage() {
     e.preventDefault();
     setSubmitting(true);
 
+    // Created here, not at the top of the component, so this never runs
+    // during the server-side render pass (including at build time) — only
+    // when actually submitted in the browser.
+    const supabase = createClient();
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
       redirectTo: `${window.location.origin}/set-password`,
     });

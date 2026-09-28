@@ -7,13 +7,16 @@ import { Button, Card, Field, Input, Message } from "@/components/ui";
 
 export default function SetPasswordPage() {
   const router = useRouter();
-  const supabase = createClient();
   const [ready, setReady] = useState(false);
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
+    // Created here (and again in handleSubmit below), not at the top of the
+    // component, so this never runs during the server-side render pass
+    // (including at build time) — only client-side, after mount.
+    const supabase = createClient();
     // The invite link's tokens are in the URL; the browser client picks them
     // up on load and turns them into a session automatically.
     supabase.auth.getSession().then(({ data }) => {
@@ -23,13 +26,14 @@ export default function SetPasswordPage() {
         setError("This invite link is invalid or has expired. Ask your admin to send a new one.");
       }
     });
-  }, [supabase]);
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
     setError(null);
 
+    const supabase = createClient();
     const { error } = await supabase.auth.updateUser({ password });
     setSubmitting(false);
 
