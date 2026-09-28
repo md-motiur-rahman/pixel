@@ -4,7 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import QrScanner from "qr-scanner";
 import { Button } from "@/components/ui";
 
-export function CameraScanButton({ onScan }: { onScan: (value: string) => void }) {
+export function CameraScanButton({
+  onScan,
+  disabled,
+}: {
+  onScan: (value: string) => void;
+  disabled?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -42,6 +48,7 @@ export function CameraScanButton({ onScan }: { onScan: (value: string) => void }
       <Button
         type="button"
         variant="secondary"
+        disabled={disabled}
         onClick={() => {
           setError(null);
           setOpen(true);

@@ -107,8 +107,7 @@ free) or you tunnel localhost with something like `ngrok`.
 
 ### Offline behavior
 
-A service worker keeps the app shell loadable on flaky warehouse wifi, and an
-amber banner appears whenever the browser goes offline. Camera **lookups**
+An amber banner appears whenever the browser goes offline. Camera **lookups**
 (dispatcher scan-to-view, tester's "fix a mistake" search) need a live
 connection — there's nothing to show without one. But the two write actions used
 while walking the floor — a dispatcher's **pick** and a checker's **scan** — are
@@ -116,6 +115,15 @@ queued locally (in the browser's storage) if the connection drops mid-action, an
 sync automatically the moment the connection returns, without losing what was
 scanned. The checker's "Finish session" button is blocked while scans are still
 waiting to sync, so a session can't be closed out with missing data.
+
+A service worker also lets `/dispatcher` and `/tester` be **reloaded** while
+offline and still reach those controls (not just keep working in a tab that was
+already open) — their pages render no per-user or business data server-side, so
+caching them is safe on a shared device. `/checker` and `/admin` deliberately
+don't get this: `/checker`'s page embeds the live count session and tally data,
+which must never be cached and replayed to whoever uses the device next. A
+reload of those (or any other page) while offline shows a static "you're
+offline" message instead.
 
 ## Label printing
 

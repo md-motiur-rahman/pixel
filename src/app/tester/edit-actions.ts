@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { escapeLikePattern, looksLikeUuid } from "@/lib/escape-like";
+import { findOrCreate } from "@/lib/find-or-create";
 
 export type EditableUnit = {
   id: string;
@@ -72,32 +73,52 @@ export async function findUnitForEdit(rawInput: string): Promise<FindResult> {
 
 export async function updateUnitDetails(
   unitId: string,
-  modelVariantId: string,
   input: { serialNumber: string; note: string; gradeId: string }
 ): Promise<FindResult> {
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not signed in." };
+
   const serialNumber = input.serialNumber.trim();
   if (!serialNumber) return { ok: false, error: "Serial number is required." };
 
-  const { data: existingSkuLine } = await supabase
-    .from("sku_lines")
-    .select("id")
-    .eq("model_variant_id", modelVariantId)
-    .eq("grade_id", input.gradeId)
+  // Load the unit's own current model_variant_id server-side rather than
+  // trusting a client-supplied value — a caller passing an unrelated variant
+  // id here would otherwise silently reclassify this physical camera as a
+  // completely different brand/model/color.
+  const { data: currentUnit, error: currentUnitError } = await supabase
+    .from("units")
+    .select("sku_lines ( model_variant_id )")
+    .eq("id", unitId)
     .maybeSingle();
+  if (currentUnitError) return { ok: false, error: currentUnitError.message };
+  if (!currentUnit) return { ok: false, error: "This camera no longer exists." };
+  const modelVariantId = (currentUnit.sku_lines as unknown as { model_variant_id: string } | null)
+    ?.model_variant_id;
+  if (!modelVariantId) return { ok: false, error: "Could not determine this camera's current model." };
 
-  let skuLineId = existingSkuLine?.id ?? null;
-  if (!skuLineId) {
-    const { data: code, error: codeError } = await supabase.rpc("next_sku_code");
-    if (codeError) return { ok: false, error: `Could not generate SKU code: ${codeError.message}` };
-    const { data: created, error } = await supabase
-      .from("sku_lines")
-      .insert({ model_variant_id: modelVariantId, grade_id: input.gradeId, code })
-      .select("id")
-      .single();
-    if (error) return { ok: false, error: `Could not create SKU line: ${error.message}` };
-    skuLineId = created.id;
-  }
+  const skuLineResult = await findOrCreate(
+    async () =>
+      supabase
+        .from("sku_lines")
+        .select("id")
+        .eq("model_variant_id", modelVariantId)
+        .eq("grade_id", input.gradeId)
+        .maybeSingle(),
+    async () => {
+      const { data: code, error: codeError } = await supabase.rpc("next_sku_code");
+      if (codeError) return { data: null, error: codeError };
+      return supabase
+        .from("sku_lines")
+        .insert({ model_variant_id: modelVariantId, grade_id: input.gradeId, code })
+        .select("id")
+        .single();
+    }
+  );
+  if (!skuLineResult.ok) return { ok: false, error: `Could not save SKU line: ${skuLineResult.error}` };
+  const skuLineId = skuLineResult.id;
 
   const { data: updated, error } = await supabase
     .from("units")

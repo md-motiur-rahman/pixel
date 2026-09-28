@@ -106,6 +106,18 @@ export interface Database {
       merge_brands: { Args: { source_id: string; target_id: string }; Returns: undefined };
       merge_models: { Args: { source_id: string; target_id: string }; Returns: undefined };
       merge_variants: { Args: { source_id: string; target_id: string }; Returns: undefined };
+      get_stock_count_tally: {
+        Args: { p_stock_count_id: string };
+        Returns: {
+          sku_line_id: string;
+          brand: string;
+          model: string;
+          color: string;
+          grade: string;
+          system_qty: number;
+          scanned_qty: number;
+        }[];
+      };
     };
   };
 }

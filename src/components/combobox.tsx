@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Input, Label } from "@/components/ui";
 
 export type ComboboxOption = { id: string; label: string };
@@ -26,7 +26,9 @@ export function Combobox({
   const [options, setOptions] = useState<ComboboxOption[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [searchFailed, setSearchFailed] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const inputId = useId();
 
   useEffect(() => {
     function onClickOutside(e: MouseEvent) {
@@ -43,9 +45,18 @@ export function Combobox({
     let cancelled = false;
     const timeout = setTimeout(async () => {
       setLoading(true);
+      setSearchFailed(false);
       try {
         const results = await search(query);
-        if (!cancelled) setOptions(results);
+        if (cancelled) return;
+        setOptions(results);
+      } catch {
+        if (cancelled) return;
+        // Don't leave a stale list from the last successful query on screen
+        // under a search that just failed — and don't offer "Add" while we
+        // genuinely don't know whether this name already exists.
+        setOptions([]);
+        setSearchFailed(true);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -60,8 +71,9 @@ export function Combobox({
 
   return (
     <div ref={containerRef} className="relative">
-      {label && <Label>{label}</Label>}
+      {label && <Label htmlFor={inputId}>{label}</Label>}
       <Input
+        id={inputId}
         type="text"
         disabled={disabled}
         placeholder={placeholder}
@@ -75,7 +87,13 @@ export function Combobox({
       {open && query.trim().length > 0 && (
         <div className="absolute z-10 mt-1.5 max-h-56 w-full overflow-auto rounded-lg border border-neutral-200 bg-white py-1 shadow-lg shadow-neutral-900/10">
           {loading && <div className="px-3.5 py-2.5 text-sm text-neutral-400">Searching…</div>}
+          {!loading && searchFailed && (
+            <div className="px-3.5 py-2.5 text-sm text-red-600">
+              Couldn&rsquo;t search — check your connection and try again.
+            </div>
+          )}
           {!loading &&
+            !searchFailed &&
             options.map((opt) => (
               <button
                 key={opt.id}
@@ -90,7 +108,7 @@ export function Combobox({
                 {opt.label}
               </button>
             ))}
-          {!loading && !exactMatch && query.trim().length > 0 && (
+          {!loading && !searchFailed && !exactMatch && query.trim().length > 0 && (
             <button
               type="button"
               onClick={() => {

@@ -13,7 +13,11 @@ export function SignOutButton() {
       variant="ghost"
       size="sm"
       onClick={async () => {
-        await supabase.auth.signOut();
+        // Without { scope: "local" }, Supabase signs the user out
+        // everywhere — a dispatcher signing out of a shared warehouse
+        // tablet would otherwise also kill their session on their own
+        // phone the next time it refreshes its token.
+        await supabase.auth.signOut({ scope: "local" });
         router.push("/login");
         router.refresh();
       }}

@@ -25,23 +25,47 @@ export function ScanPanel() {
   const [picking, setPicking] = useState(false);
   const [undoing, setUndoing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Which lookup produced what's currently on screen — a pick/undo response
+  // (or a later lookup response) only applies if this hasn't moved on since.
   const lookupSeqRef = useRef(0);
+  // unitRef mirrors `unit` so the stable flushQueue callback can tell whether
+  // a background sync is for the unit currently on screen, without needing
+  // `unit` in its dependency array.
+  const unitRef = useRef(unit);
+  useEffect(() => {
+    unitRef.current = unit;
+  });
+  // Unit ids a background flush has already sent to the server and is still
+  // waiting on — Undo must not "cancel" one of these locally, since the
+  // server may commit the pick after the local cancel already ran.
+  const inFlightPickIdsRef = useRef<Set<string>>(new Set());
   const pendingCount = useQueueLength(pickQueue, PICK_QUEUE_KEY);
 
   const flushQueue = useCallback(async () => {
     for (const item of pickQueue.list()) {
+      inFlightPickIdsRef.current.add(item.payload.unitId);
       try {
         const result = await pickUnit(item.payload.unitId);
-        // Either it synced, or the server permanently rejected it (e.g.
-        // already picked by someone else) — retrying won't help either way,
-        // so it comes out of the queue. A thrown error (still offline) is
-        // the only case that should keep it queued for the next attempt.
-        pickQueue.removeItem(item.id);
-        if (!result.ok) {
-          setError(`A queued pick failed to sync and was dropped: ${result.error}`);
+        // Only drop it once we know retrying can't help: it either synced,
+        // or the server gave a *permanent* rejection (e.g. already picked by
+        // someone else). "Not signed in" and other transient errors must
+        // stay queued — otherwise a real pick silently vanishes.
+        if (result.ok || result.permanent) {
+          pickQueue.removeItem(item.id);
+          if (!result.ok) {
+            setError(`A queued pick failed to sync and was dropped: ${result.error}`);
+          } else if (unitRef.current?.id === item.payload.unitId) {
+            // Still showing this unit — replace the "(pending sync)"
+            // placeholder with the confirmed server data.
+            setUnit(result.unit);
+          }
+        } else {
+          break; // retriable failure — keep queued, try again later
         }
       } catch {
         break; // still offline — stop here, retry on the next 'online' event
+      } finally {
+        inFlightPickIdsRef.current.delete(item.payload.unitId);
       }
     }
   }, []);
@@ -70,6 +94,10 @@ export function ScanPanel() {
     setLoading(true);
     setError(null);
     setUnit(null);
+    // A stale Pick/Undo response for the *previous* unit could otherwise
+    // arrive after this reset and re-disable these buttons for the new one.
+    setPicking(false);
+    setUndoing(false);
 
     try {
       const result = await lookupUnit(value);
@@ -96,11 +124,14 @@ export function ScanPanel() {
 
   async function handlePick() {
     if (!unit) return;
+    const pickedUnitId = unit.id;
+    const seq = lookupSeqRef.current;
     setPicking(true);
     setError(null);
 
     try {
-      const result = await pickUnit(unit.id);
+      const result = await pickUnit(pickedUnitId);
+      if (seq !== lookupSeqRef.current) return; // a newer scan replaced the screen
       setPicking(false);
       if (!result.ok) {
         setError(result.error);
@@ -108,42 +139,64 @@ export function ScanPanel() {
       }
       setUnit(result.unit);
     } catch {
+      // The pick attempt itself must not be lost just because the dispatcher
+      // has since scanned something else — queue it regardless, and only
+      // skip the on-screen update if it's no longer what's displayed.
+      const queued = pickQueue.enqueue({ unitId: pickedUnitId });
+      if (seq !== lookupSeqRef.current) return;
       setPicking(false);
-      pickQueue.enqueue({ unitId: unit.id });
-      setUnit({
-        ...unit,
-        status: "picked",
-        pickedByName: "You (pending sync)",
-        pickedAt: new Date().toISOString(),
-      });
+      if (!queued.ok) {
+        // Couldn't even save it locally (storage full/blocked) — don't claim
+        // it's queued when it's actually just gone.
+        setError("You're offline and this device couldn't save the pick either. Try again once you're back online.");
+        return;
+      }
+      setUnit((current) =>
+        current && current.id === pickedUnitId
+          ? { ...current, status: "picked", pickedByName: "You (pending sync)", pickedAt: new Date().toISOString() }
+          : current
+      );
     }
   }
 
   async function handleUndoPick() {
     if (!unit) return;
+    const unitId = unit.id;
+    const seq = lookupSeqRef.current;
+
+    if (inFlightPickIdsRef.current.has(unitId)) {
+      setError("This pick is still syncing — wait a moment and try again.");
+      return;
+    }
 
     // If the pick hasn't actually reached the server yet (still queued from
     // an offline moment), just cancel it locally — nothing to undo remotely.
-    const queuedPick = pickQueue.list().find((item) => item.payload.unitId === unit.id);
+    const queuedPick = pickQueue.list().find((item) => item.payload.unitId === unitId);
     if (queuedPick) {
       pickQueue.removeItem(queuedPick.id);
-      setUnit({ ...unit, status: "in_stock", pickedByName: null, pickedAt: null });
+      setUnit((current) =>
+        current && current.id === unitId
+          ? { ...current, status: "in_stock", pickedByName: null, pickedAt: null }
+          : current
+      );
       return;
     }
 
     setUndoing(true);
     setError(null);
     try {
-      const result = await undoPick(unit.id);
+      const result = await undoPick(unitId);
+      if (seq !== lookupSeqRef.current) return;
       if (!result.ok) {
         setError(result.error);
         return;
       }
       setUnit(result.unit);
     } catch {
+      if (seq !== lookupSeqRef.current) return;
       setError("You're offline — undoing a pick needs a connection.");
     } finally {
-      setUndoing(false);
+      if (seq === lookupSeqRef.current) setUndoing(false);
     }
   }
 

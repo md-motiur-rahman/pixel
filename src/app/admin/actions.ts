@@ -10,6 +10,9 @@ type ActionResult = { ok: true } | { ok: false; error: string };
 export async function updateUserRole(userId: string, role: Role): Promise<ActionResult> {
   const admin = await requireAdmin();
   if (!admin.ok) return admin;
+  if (userId === admin.userId && role !== "admin") {
+    return { ok: false, error: "You can't remove your own admin role." };
+  }
 
   const { error } = await admin.supabase.from("profiles").update({ role }).eq("id", userId);
   if (error) return { ok: false, error: error.message };

@@ -41,13 +41,17 @@ export function CountSession({
       if (item.payload.stockCountId !== stockCountId) continue;
       try {
         const result = await recordScan(item.payload.stockCountId, item.payload.unitId);
-        // Either it synced, or the server permanently rejected it (e.g. the
-        // unit no longer exists) — either way, retrying won't help, so it
-        // comes out of the queue. A thrown error (still offline) is the only
-        // case that should keep it queued for the next attempt.
-        scanQueue.removeItem(item.id);
-        if (!result.ok) {
-          setError(`A queued scan failed to record and was dropped: ${result.error}`);
+        // Only drop it once retrying truly can't help: it either synced, or
+        // the server gave a *permanent* rejection (e.g. no such unit, or the
+        // session was finished). A transient upsert error must stay queued —
+        // otherwise a real scan silently vanishes.
+        if (result.ok || result.permanent) {
+          scanQueue.removeItem(item.id);
+          if (!result.ok) {
+            setError(`A queued scan failed to record and was dropped: ${result.error}`);
+          }
+        } else {
+          break; // retriable failure — keep queued, try again later
         }
       } catch {
         break; // still offline — stop here, retry on the next 'online' event
@@ -78,7 +82,7 @@ export function CountSession({
   }, [stockCountId, flushQueue]);
 
   async function performScan(value: string) {
-    if (!stockCountId || !value.trim()) return;
+    if (!stockCountId || !value.trim() || finishing) return;
     setScan("");
     setError(null);
     setInFlightCount((n) => n + 1);
@@ -98,8 +102,14 @@ export function CountSession({
         setError(`Scan recorded, but couldn't refresh the tally: ${tallyResult.error}`);
       }
     } catch {
-      scanQueue.enqueue({ stockCountId, unitId: value });
-      setLastMessage("Offline — queued, will sync automatically once you're back online.");
+      const queued = scanQueue.enqueue({ stockCountId, unitId: value });
+      if (queued.ok) {
+        setLastMessage("Offline — queued, will sync automatically once you're back online.");
+      } else {
+        // Couldn't even save it locally (storage full/blocked) — don't claim
+        // it's queued when it's actually just gone.
+        setError("You're offline and this device couldn't save the scan either. Try again once you're back online.");
+      }
     } finally {
       setInFlightCount((n) => n - 1);
     }
@@ -120,28 +130,37 @@ export function CountSession({
     }
     setFinishing(true);
     setError(null);
-    const result = await finishStockCount(stockCountId);
-    setFinishing(false);
-
-    if (!result.ok) {
-      setError(result.error);
-      return;
+    try {
+      const result = await finishStockCount(stockCountId);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      setStockCountId(null);
+      setTally([]);
+    } catch {
+      setError("Could not finish — check your connection and try again.");
+    } finally {
+      setFinishing(false);
     }
-    setStockCountId(null);
-    setTally([]);
   }
 
   async function handleStart() {
     setStarting(true);
     setError(null);
-    const result = await startStockCount();
-    setStarting(false);
-    if (!result.ok) {
-      setError(result.error);
-      return;
+    try {
+      const result = await startStockCount();
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      setStockCountId(result.stockCountId);
+      setTally([]);
+    } catch {
+      setError("Could not start — check your connection and try again.");
+    } finally {
+      setStarting(false);
     }
-    setStockCountId(result.stockCountId);
-    setTally([]);
   }
 
   if (!stockCountId) {
@@ -166,9 +185,10 @@ export function CountSession({
                 ref={inputRef}
                 type="text"
                 autoFocus
+                disabled={finishing}
                 value={scan}
                 onChange={(e) => setScan(e.target.value)}
-                placeholder="Waiting for scan…"
+                placeholder={finishing ? "Finishing session…" : "Waiting for scan…"}
                 className="text-center text-lg tracking-wide sm:text-left"
               />
             </Field>
@@ -179,7 +199,7 @@ export function CountSession({
         </form>
 
         <div className="mt-3">
-          <CameraScanButton onScan={(value) => void performScan(value)} />
+          <CameraScanButton onScan={(value) => void performScan(value)} disabled={finishing} />
         </div>
 
         {(pendingCount > 0 || inFlightCount > 0) && (

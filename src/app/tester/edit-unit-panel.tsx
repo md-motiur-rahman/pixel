@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { findUnitForEdit, updateUnitDetails, type EditableUnit } from "./edit-actions";
 import { Button, Card, Field, Input, Message, Select } from "@/components/ui";
 import { CameraScanButton } from "@/components/camera-scan-button";
@@ -18,24 +18,34 @@ export function EditUnitPanel({ grades }: { grades: Grade[] }) {
   const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  // A camera scan and a manual "Find" click can both be in flight at once;
+  // if the older one resolves last, it must not overwrite the newer result.
+  const searchSeqRef = useRef(0);
 
   async function performSearch(value: string) {
+    const seq = ++searchSeqRef.current;
     setLoading(true);
     setError(null);
     setSuccess(null);
     setUnit(null);
 
-    const result = await findUnitForEdit(value);
-    setLoading(false);
-
-    if (!result.ok) {
-      setError(result.error);
-      return;
+    try {
+      const result = await findUnitForEdit(value);
+      if (seq !== searchSeqRef.current) return;
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      setUnit(result.unit);
+      setSerialNumber(result.unit.serialNumber);
+      setNote(result.unit.note ?? "");
+      setGradeId(result.unit.gradeId);
+    } catch {
+      if (seq !== searchSeqRef.current) return;
+      setError("Could not search — check your connection and try again.");
+    } finally {
+      if (seq === searchSeqRef.current) setLoading(false);
     }
-    setUnit(result.unit);
-    setSerialNumber(result.unit.serialNumber);
-    setNote(result.unit.note ?? "");
-    setGradeId(result.unit.gradeId);
   }
 
   function handleSearch(e: React.FormEvent) {
@@ -49,15 +59,19 @@ export function EditUnitPanel({ grades }: { grades: Grade[] }) {
     setSaving(true);
     setError(null);
 
-    const result = await updateUnitDetails(unit.id, unit.modelVariantId, { serialNumber, note, gradeId });
-    setSaving(false);
-
-    if (!result.ok) {
-      setError(result.error);
-      return;
+    try {
+      const result = await updateUnitDetails(unit.id, { serialNumber, note, gradeId });
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      setUnit(result.unit);
+      setSuccess("Saved.");
+    } catch {
+      setError("Could not save — check your connection and try again.");
+    } finally {
+      setSaving(false);
     }
-    setUnit(result.unit);
-    setSuccess("Saved.");
   }
 
   if (!open) {

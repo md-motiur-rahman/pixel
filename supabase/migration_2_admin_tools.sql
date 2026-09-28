@@ -167,3 +167,45 @@ begin
   delete from brands where id = source_id;
 end;
 $$;
+
+-- Aggregates scan counts in SQL rather than pulling every raw scan row to the
+-- client and grouping in JS — that approach re-fetches the whole session's
+-- scan history after every single scan, so a session of n scans transfers
+-- O(n^2) scan rows in total. This returns one row per SKU line instead,
+-- bounded by catalog size rather than scan count.
+create or replace function get_stock_count_tally(p_stock_count_id uuid)
+returns table (
+  sku_line_id uuid,
+  brand text,
+  model text,
+  color text,
+  grade text,
+  system_qty int,
+  scanned_qty int
+)
+language sql
+stable
+as $$
+  select
+    sl.id as sku_line_id,
+    b.name as brand,
+    m.name as model,
+    mv.color as color,
+    g.code as grade,
+    sl.quantity as system_qty,
+    coalesce(scan_counts.scanned_qty, 0) as scanned_qty
+  from sku_lines sl
+  join model_variants mv on mv.id = sl.model_variant_id
+  join models m on m.id = mv.model_id
+  join brands b on b.id = m.brand_id
+  join grades g on g.id = sl.grade_id
+  left join (
+    select u.sku_line_id, count(*)::int as scanned_qty
+    from stock_count_scans scs
+    join units u on u.id = scs.unit_id
+    where scs.stock_count_id = p_stock_count_id
+    group by u.sku_line_id
+  ) scan_counts on scan_counts.sku_line_id = sl.id
+  where sl.quantity > 0 or coalesce(scan_counts.scanned_qty, 0) > 0
+  order by sl.id;
+$$;

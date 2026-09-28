@@ -20,52 +20,26 @@ async function computeTally(
   supabase: Awaited<ReturnType<typeof createClient>>,
   stockCountId: string
 ): Promise<{ ok: true; rows: TallyRow[] } | { ok: false; error: string }> {
-  const skuLinesResult = await fetchAllPages(async (from, to) =>
-    supabase
-      .from("sku_lines")
-      .select("id, quantity, grades ( code ), model_variants ( color, models ( name, brands ( name ) ) )")
-      .order("id")
-      .range(from, to)
+  // Aggregated in SQL (see get_stock_count_tally) rather than fetching every
+  // raw scan row and grouping in JS — that would re-transfer the whole
+  // session's growing scan history after every single scan (O(n^2) total for
+  // n scans). This returns one row per SKU line instead, bounded by catalog
+  // size regardless of how many scans have happened.
+  const tallyResult = await fetchAllPages(async (from, to) =>
+    supabase.rpc("get_stock_count_tally", { p_stock_count_id: stockCountId }).range(from, to)
   );
-  if (!skuLinesResult.ok) return skuLinesResult;
+  if (!tallyResult.ok) return tallyResult;
 
-  const scansResult = await fetchAllPages(async (from, to) =>
-    supabase
-      .from("stock_count_scans")
-      .select("id, unit_id, units ( sku_line_id )")
-      .eq("stock_count_id", stockCountId)
-      .order("id")
-      .range(from, to)
-  );
-  if (!scansResult.ok) return scansResult;
-
-  const scannedCounts = new Map<string, number>();
-  for (const scan of scansResult.rows) {
-    const skuLineId = (scan.units as unknown as { sku_line_id: string } | null)?.sku_line_id;
-    if (!skuLineId) continue;
-    scannedCounts.set(skuLineId, (scannedCounts.get(skuLineId) ?? 0) + 1);
-  }
-
-  const rows: TallyRow[] = [];
-  for (const sl of skuLinesResult.rows) {
-    const scannedQty = scannedCounts.get(sl.id) ?? 0;
-    if (sl.quantity === 0 && scannedQty === 0) continue;
-    const variant = sl.model_variants as unknown as {
-      color: string;
-      models: { name: string; brands: { name: string } };
-    };
-    const grade = sl.grades as unknown as { code: string };
-    rows.push({
-      skuLineId: sl.id,
-      brand: variant.models.brands.name,
-      model: variant.models.name,
-      color: variant.color,
-      grade: grade.code,
-      systemQty: sl.quantity,
-      scannedQty,
-      diff: scannedQty - sl.quantity,
-    });
-  }
+  const rows: TallyRow[] = tallyResult.rows.map((row) => ({
+    skuLineId: row.sku_line_id,
+    brand: row.brand,
+    model: row.model,
+    color: row.color,
+    grade: row.grade,
+    systemQty: row.system_qty,
+    scannedQty: row.scanned_qty,
+    diff: row.scanned_qty - row.system_qty,
+  }));
 
   rows.sort((a, b) => {
     if (a.diff !== 0 && b.diff === 0) return -1;
@@ -120,13 +94,37 @@ export async function startStockCount(): Promise<{ ok: true; stockCountId: strin
 export async function recordScan(
   stockCountId: string,
   rawScan: string
-): Promise<{ ok: true; alreadyScanned: boolean } | { ok: false; error: string }> {
+): Promise<
+  // permanent: retrying this exact request could never succeed, as opposed
+  // to a transient upsert error, which a queued offline retry should hold
+  // onto rather than drop.
+  { ok: true; alreadyScanned: boolean } | { ok: false; error: string; permanent?: boolean }
+> {
   const unitId = rawScan.trim();
-  if (!unitId) return { ok: false, error: "Empty scan." };
+  if (!unitId) return { ok: false, error: "Empty scan.", permanent: true };
   const supabase = await createClient();
 
-  const { data: unit } = await supabase.from("units").select("id").eq("id", unitId).maybeSingle();
-  if (!unit) return { ok: false, error: "No camera found for that QR code." };
+  const { data: unit, error: unitError } = await supabase
+    .from("units")
+    .select("id")
+    .eq("id", unitId)
+    .maybeSingle();
+  if (unitError) return { ok: false, error: unitError.message };
+  if (!unit) return { ok: false, error: "No camera found for that QR code.", permanent: true };
+
+  // Enforced server-side, not just by disabling the UI while finishing —
+  // a scan already in flight (or replayed from the offline queue) could
+  // otherwise land after the session was closed.
+  const { data: session, error: sessionError } = await supabase
+    .from("stock_counts")
+    .select("finished_at")
+    .eq("id", stockCountId)
+    .maybeSingle();
+  if (sessionError) return { ok: false, error: sessionError.message };
+  if (!session) return { ok: false, error: "This count session no longer exists.", permanent: true };
+  if (session.finished_at) {
+    return { ok: false, error: "This count session has already been finished.", permanent: true };
+  }
 
   const { data, error } = await supabase
     .from("stock_count_scans")
