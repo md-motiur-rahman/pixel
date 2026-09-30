@@ -69,6 +69,34 @@ export async function deactivateStaff(userId: string): Promise<ActionResult> {
   return { ok: true };
 }
 
+export async function deleteStaff(userId: string): Promise<ActionResult> {
+  const admin = await requireAdmin();
+  if (!admin.ok) return admin;
+  if (userId === admin.userId) return { ok: false, error: "You can't delete your own account." };
+
+  const adminClient = createAdminClient();
+  const { error } = await adminClient.auth.admin.deleteUser(userId);
+  if (error) {
+    // profiles.id cascades on delete, but units.tester_id/picked_by and
+    // stock_counts.checker_id reference profiles WITHOUT cascading — by
+    // design (see schema.sql), so a staff member's testing/picking/checking
+    // history survives them leaving. That FK restriction surfaces here as a
+    // Postgres error; translate it into the actual next step for the admin.
+    const message = error.message.toLowerCase();
+    if (message.includes("foreign key") || message.includes("violates") || message.includes("constraint")) {
+      return {
+        ok: false,
+        error:
+          "Can't delete — this person has tested, picked, or checked cameras on record. Deactivate them instead to keep that history.",
+      };
+    }
+    return { ok: false, error: error.message };
+  }
+
+  revalidatePath("/admin");
+  return { ok: true };
+}
+
 export async function reactivateStaff(userId: string): Promise<ActionResult> {
   const admin = await requireAdmin();
   if (!admin.ok) return admin;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { updateUserRole, resendAccess, deactivateStaff, reactivateStaff } from "./actions";
+import { updateUserRole, resendAccess, deactivateStaff, reactivateStaff, deleteStaff } from "./actions";
 import type { Role } from "@/types/database";
 import { Button, Select } from "@/components/ui";
 import { cn } from "@/lib/cn";
@@ -24,6 +24,7 @@ export function StaffRow({
   const [role, setRole] = useState(currentRole);
   const [isPending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   return (
     <li className="flex flex-col gap-3 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
@@ -107,6 +108,48 @@ export function StaffRow({
             }}
           >
             Reactivate
+          </Button>
+        )}
+
+        {confirmingDelete ? (
+          <>
+            <Button
+              size="sm"
+              variant="destructive"
+              disabled={isPending}
+              onClick={() => {
+                setMessage(null);
+                startTransition(async () => {
+                  const result = await deleteStaff(userId);
+                  if (!result.ok) {
+                    setMessage(result.error);
+                    setConfirmingDelete(false);
+                  }
+                });
+              }}
+            >
+              Confirm delete
+            </Button>
+            <button
+              type="button"
+              disabled={isPending}
+              onClick={() => setConfirmingDelete(false)}
+              className="text-sm text-neutral-500 hover:text-neutral-700"
+            >
+              Cancel
+            </button>
+          </>
+        ) : (
+          <Button
+            size="sm"
+            variant="destructive"
+            disabled={isPending}
+            onClick={() => {
+              setMessage(null);
+              setConfirmingDelete(true);
+            }}
+          >
+            Delete
           </Button>
         )}
       </div>
