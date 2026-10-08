@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Dialog, VisuallyHidden } from "radix-ui";
-import { Check, RotateCcw, ScanText, X } from "lucide-react";
+import { Check, RotateCcw, ScanText } from "lucide-react";
 import { Button, Input, Message } from "@/components/ui";
+import { ScannerDialog, ScannerFooter, ScannerViewport } from "@/components/scanner/scanner-dialog";
+import { useCameraScanner } from "@/components/scanner/use-camera-scanner";
 
 // Serial numbers come in two shapes: a printed barcode, or just plain text on a
 // sticker/engraving. One camera view handles both:
@@ -37,79 +38,26 @@ function extractCandidates(text: string): string[] {
 
 type Review = { image: string; candidates: string[]; reading: boolean; error: string | null };
 
-function ScannerBody({ onResult, onClose }: { onResult: (value: string) => void; onClose: () => void }) {
+function SerialScannerBody({ onResult, onClose }: { onResult: (value: string) => void; onClose: () => void }) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const frameRef = useRef<HTMLDivElement>(null);
   const reviewActiveRef = useRef(false);
-  // The decoder keeps firing until torn down — accept only the first barcode.
-  const handledRef = useRef(false);
-  const onResultRef = useRef(onResult);
   const workerRef = useRef<import("tesseract.js").Worker | null>(null);
-  const [cameraError, setCameraError] = useState<string | null>(null);
-  const [ready, setReady] = useState(false);
   const [review, setReview] = useState<Review | null>(null);
   const [value, setValue] = useState("");
 
-  useEffect(() => {
-    onResultRef.current = onResult;
+  const { state, torch } = useCameraScanner(videoRef, {
+    formats: ["CODE_128", "CODE_39", "CODE_93", "EAN_13", "EAN_8", "UPC_A", "ITF", "CODABAR", "DATA_MATRIX", "QR_CODE"],
+    highResolution: true,
+    onDecode: (text) => {
+      // While someone is reviewing an OCR reading, ignore barcodes in view.
+      if (reviewActiveRef.current) return false;
+      onResult(text);
+    },
   });
 
-  // Camera + continuous barcode decoding.
   useEffect(() => {
-    let cancelled = false;
-    let stop: (() => void) | null = null;
-
-    (async () => {
-      try {
-        const [{ BrowserMultiFormatReader }, { BarcodeFormat, DecodeHintType }] = await Promise.all([
-          import("@zxing/browser"),
-          import("@zxing/library"),
-        ]);
-        if (cancelled || !videoRef.current) return;
-
-        const hints = new Map();
-        hints.set(DecodeHintType.POSSIBLE_FORMATS, [
-          BarcodeFormat.CODE_128,
-          BarcodeFormat.CODE_39,
-          BarcodeFormat.CODE_93,
-          BarcodeFormat.EAN_13,
-          BarcodeFormat.EAN_8,
-          BarcodeFormat.UPC_A,
-          BarcodeFormat.ITF,
-          BarcodeFormat.CODABAR,
-          BarcodeFormat.DATA_MATRIX,
-          BarcodeFormat.QR_CODE,
-        ]);
-        hints.set(DecodeHintType.TRY_HARDER, true);
-        const reader = new BrowserMultiFormatReader(hints, { delayBetweenScanAttempts: 120 });
-
-        const controls = await reader.decodeFromConstraints(
-          { video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } } },
-          videoRef.current,
-          (result) => {
-            if (!result || reviewActiveRef.current || handledRef.current) return;
-            const text = result.getText().trim();
-            if (!text) return;
-            handledRef.current = true;
-            navigator.vibrate?.(60);
-            onResultRef.current(text);
-          }
-        );
-        if (cancelled) {
-          controls.stop();
-          return;
-        }
-        stop = () => controls.stop();
-        setReady(true);
-      } catch {
-        if (!cancelled) {
-          setCameraError("Couldn't access the camera. Check camera permission for this site and try again.");
-        }
-      }
-    })();
-
     return () => {
-      cancelled = true;
-      stop?.();
       void workerRef.current?.terminate();
       workerRef.current = null;
     };
@@ -117,20 +65,20 @@ function ScannerBody({ onResult, onClose }: { onResult: (value: string) => void;
 
   async function readText() {
     const video = videoRef.current;
-    if (!video || !video.videoWidth) return;
+    const frame = frameRef.current;
+    if (!video || !frame || !video.videoWidth) return;
 
     // Crop to the on-screen guide box. The video is object-cover, so map the
     // box from screen coordinates back to the real frame.
-    const rect = video.getBoundingClientRect();
-    const scale = Math.max(rect.width / video.videoWidth, rect.height / video.videoHeight);
-    const offX = (video.videoWidth * scale - rect.width) / 2;
-    const offY = (video.videoHeight * scale - rect.height) / 2;
-    const guideW = rect.width * 0.9;
-    const guideH = rect.height * 0.3;
-    const sx = (rect.width * 0.05 + offX) / scale;
-    const sy = ((rect.height - guideH) / 2 + offY) / scale;
-    const sw = guideW / scale;
-    const sh = guideH / scale;
+    const vr = video.getBoundingClientRect();
+    const fr = frame.getBoundingClientRect();
+    const scale = Math.max(vr.width / video.videoWidth, vr.height / video.videoHeight);
+    const offX = (video.videoWidth * scale - vr.width) / 2;
+    const offY = (video.videoHeight * scale - vr.height) / 2;
+    const sx = Math.max(0, (fr.left - vr.left + offX) / scale);
+    const sy = Math.max(0, (fr.top - vr.top + offY) / scale);
+    const sw = Math.min(video.videoWidth - sx, fr.width / scale);
+    const sh = Math.min(video.videoHeight - sy, fr.height / scale);
 
     const upscale = sw < 1400 ? 1400 / sw : 1;
     const canvas = document.createElement("canvas");
@@ -162,7 +110,13 @@ function ScannerBody({ onResult, onClose }: { onResult: (value: string) => void;
       setReview((r) => (r ? { ...r, candidates, reading: false } : r));
     } catch {
       setReview((r) =>
-        r ? { ...r, reading: false, error: "Couldn't read the text (it needs an internet connection the first time). You can type it instead." } : r
+        r
+          ? {
+              ...r,
+              reading: false,
+              error: "Couldn't read the text (it needs an internet connection the first time). You can type it instead.",
+            }
+          : r
       );
     }
   }
@@ -174,113 +128,100 @@ function ScannerBody({ onResult, onClose }: { onResult: (value: string) => void;
   }
 
   return (
-    <div className="space-y-3">
-      <div className="relative aspect-4/3 w-full overflow-hidden rounded-2xl bg-black">
-        <video ref={videoRef} className="size-full object-cover" muted playsInline />
+    <>
+      <ScannerViewport ref={frameRef} videoRef={videoRef} frame="wide" status={state.status} torch={torch} />
 
-        {/* Guide box = the area used for "Read text" */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-x-[5%] top-[35%] h-[30%] rounded-xl border-2 border-white/80 shadow-[0_0_0_9999px_rgb(0_0_0/0.35)]"
-        />
+      <ScannerFooter>
+        {state.status === "error" && <Message variant="error">{state.error}</Message>}
 
-        {!ready && !cameraError && (
-          <div className="absolute inset-0 flex items-center justify-center text-sm text-white/80">Starting camera…</div>
+        {!review && (
+          <>
+            {state.status !== "error" && (
+              <p className="text-center text-sm text-fg-muted">
+                Barcode? Hold it inside the box — it reads automatically.
+                <br />
+                Printed text only? Line it up in the box and tap Read text.
+              </p>
+            )}
+            <div className="flex gap-2">
+              <Button type="button" className="flex-1" onClick={() => void readText()} disabled={state.status !== "ready"}>
+                <ScanText aria-hidden="true" />
+                Read text
+              </Button>
+              <Button type="button" variant="secondary" onClick={onClose}>
+                Cancel
+              </Button>
+            </div>
+          </>
         )}
-      </div>
 
-      {cameraError && <Message variant="error">{cameraError}</Message>}
+        {review && (
+          <div className="space-y-3">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={review.image} alt="Captured area" className="max-h-20 w-full rounded-lg bg-black object-contain" />
 
-      {!review && (
-        <>
-          <p className="text-center text-sm text-fg-muted">
-            Barcode? Hold it inside the box — it reads automatically.
-            <br />
-            Printed text only? Line it up in the box and tap Read text.
-          </p>
-          <div className="flex gap-2">
-            <Button type="button" className="flex-1" onClick={() => void readText()} disabled={!ready}>
-              <ScanText aria-hidden="true" />
-              Read text
-            </Button>
-            <Button type="button" variant="secondary" onClick={onClose}>
-              Cancel
-            </Button>
-          </div>
-        </>
-      )}
-
-      {review && (
-        <div className="space-y-3 rounded-2xl border border-line-soft bg-glass-soft p-3">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={review.image} alt="Captured area" className="max-h-24 w-full rounded-lg bg-black object-contain" />
-
-          {review.reading ? (
-            <p className="text-center text-sm text-fg-muted">Reading text…</p>
-          ) : (
-            <>
-              {review.error ? (
-                <Message variant="error">{review.error}</Message>
-              ) : review.candidates.length === 0 ? (
-                <Message variant="warning">No text found. Move closer, avoid glare and retake — or type it below.</Message>
-              ) : (
-                <div>
-                  <p className="mb-1.5 text-xs text-fg-subtle">Tap the one that matches the sticker:</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {review.candidates.map((candidate) => (
-                      <button
-                        key={candidate}
-                        type="button"
-                        onClick={() => setValue(candidate)}
-                        className={
-                          "rounded-full border px-3 py-1 font-mono text-sm transition-colors " +
-                          (value === candidate
-                            ? "border-accent/50 bg-accent/20 text-fg"
-                            : "border-line bg-glass-soft text-fg-muted hover:text-fg")
-                        }
-                      >
-                        {candidate}
-                      </button>
-                    ))}
+            {review.reading ? (
+              <p className="text-center text-sm text-fg-muted">Reading text…</p>
+            ) : (
+              <>
+                {review.error ? (
+                  <Message variant="error">{review.error}</Message>
+                ) : review.candidates.length === 0 ? (
+                  <Message variant="warning">No text found. Move closer, avoid glare and retake — or type it below.</Message>
+                ) : (
+                  <div>
+                    <p className="mb-1.5 text-xs text-fg-subtle">Tap the one that matches the sticker:</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {review.candidates.map((candidate) => (
+                        <button
+                          key={candidate}
+                          type="button"
+                          onClick={() => setValue(candidate)}
+                          className={
+                            "rounded-full border px-3 py-1 font-mono text-sm transition-colors " +
+                            (value === candidate
+                              ? "border-accent/50 bg-accent/20 text-fg"
+                              : "border-line bg-glass-soft text-fg-muted hover:text-fg")
+                          }
+                        >
+                          {candidate}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              <div>
-                <label htmlFor="serial-scan-value" className="mb-1.5 block text-sm font-medium text-fg-muted">
-                  Serial number — check it against the camera
-                </label>
-                <Input
-                  id="serial-scan-value"
-                  type="text"
-                  autoCapitalize="characters"
-                  autoCorrect="off"
-                  spellCheck={false}
-                  value={value}
-                  onChange={(e) => setValue(e.target.value.toUpperCase())}
-                  className="font-mono tracking-wide"
-                />
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  className="flex-1"
-                  disabled={!value.trim()}
-                  onClick={() => onResult(value.trim())}
-                >
-                  <Check aria-hidden="true" />
-                  Use this serial
-                </Button>
-                <Button type="button" variant="secondary" onClick={retake}>
-                  <RotateCcw aria-hidden="true" />
-                  Retake
-                </Button>
-              </div>
-            </>
-          )}
-        </div>
-      )}
-    </div>
+                <div>
+                  <label htmlFor="serial-scan-value" className="mb-1.5 block text-sm font-medium text-fg-muted">
+                    Serial number — check it against the camera
+                  </label>
+                  <Input
+                    id="serial-scan-value"
+                    type="text"
+                    autoCapitalize="characters"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    value={value}
+                    onChange={(e) => setValue(e.target.value.toUpperCase())}
+                    className="font-mono tracking-wide"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button type="button" className="flex-1" disabled={!value.trim()} onClick={() => onResult(value.trim())}>
+                    <Check aria-hidden="true" />
+                    Use this serial
+                  </Button>
+                  <Button type="button" variant="secondary" onClick={retake}>
+                    <RotateCcw aria-hidden="true" />
+                    Retake
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </ScannerFooter>
+    </>
   );
 }
 
@@ -294,30 +235,13 @@ export function SerialScannerDialog({
   onResult: (value: string) => void;
 }) {
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange}>
-      <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=open]:animate-in data-[state=open]:fade-in" />
-        <Dialog.Content
-          className="dark glass-strong fixed top-1/2 left-1/2 z-50 max-h-[calc(100dvh-1.5rem)] w-[calc(100vw-1.5rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-3xl p-4 outline-none"
-        >
-          <div className="mb-3 flex items-center justify-between">
-            <Dialog.Title className="text-base font-semibold text-fg">Scan serial number</Dialog.Title>
-            <Dialog.Close asChild>
-              <button
-                type="button"
-                aria-label="Close scanner"
-                className="flex size-8 items-center justify-center rounded-lg text-fg-subtle hover:bg-glass-hover hover:text-fg"
-              >
-                <X aria-hidden="true" className="size-4" />
-              </button>
-            </Dialog.Close>
-          </div>
-          <VisuallyHidden.Root>
-            <Dialog.Description>Point the camera at a barcode, or capture the printed serial number.</Dialog.Description>
-          </VisuallyHidden.Root>
-          <ScannerBody onResult={onResult} onClose={() => onOpenChange(false)} />
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+    <ScannerDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Scan serial number"
+      description="Point the camera at a barcode, or capture the printed serial number."
+    >
+      <SerialScannerBody onResult={onResult} onClose={() => onOpenChange(false)} />
+    </ScannerDialog>
   );
 }

@@ -8,6 +8,7 @@ import { searchBrands, searchModels } from "./search-actions";
 import { Combobox, type ComboboxOption } from "@/components/combobox";
 import { Button, Card, Field, Input, Message, Select } from "@/components/ui";
 import { SerialInput } from "@/components/serial-input";
+import { CameraScanButton } from "@/components/camera-scan-button";
 
 type Grade = { id: string; code: string; label: string };
 
@@ -158,6 +159,14 @@ export function EditUnitPanel({ grades }: { grades: Grade[] }) {
         </Button>
       </form>
 
+      <div className="mt-3">
+        <CameraScanButton
+          onScan={(value) => {
+            setSearch(value);
+            void performSearch(value);
+          }}
+        />
+      </div>
 
       {error && <Message variant="error" className="mt-3">{error}</Message>}
 

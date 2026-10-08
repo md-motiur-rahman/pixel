@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Printer, Search } from "lucide-react";
 import { findUnitForEdit, type EditableUnit } from "@/app/tester/edit-actions";
 import { SerialInput } from "@/components/serial-input";
+import { CameraScanButton } from "@/components/camera-scan-button";
 import { Badge, Button, Card, Message } from "@/components/ui";
 
 // Find one exact camera by its (unique) serial number or QR, then reprint its label.
@@ -64,6 +65,15 @@ export function SerialLookup() {
           {loading ? "Finding…" : "Find"}
         </Button>
       </form>
+
+      <div className="mt-3">
+        <CameraScanButton
+          onScan={(scanned) => {
+            setValue(scanned);
+            void find(scanned);
+          }}
+        />
+      </div>
 
       {error && <Message variant="error" className="mt-3">{error}</Message>}
 
