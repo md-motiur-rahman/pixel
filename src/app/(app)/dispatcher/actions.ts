@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { escapeLikePattern, looksLikeUuid } from "@/lib/escape-like";
 import { singleSerialMatch } from "@/lib/serial";
 import type { UnitStatus } from "@/types/database";
+import { getAuthUser } from "@/lib/supabase/auth-user";
 
 export type UnitDetails = {
   id: string;
@@ -95,9 +96,7 @@ export async function lookupUnit(rawScan: string): Promise<UnitLookupResult> {
 
 export async function pickUnit(unitId: string): Promise<UnitLookupResult> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser(supabase);
   if (!user) return { ok: false, error: "Not signed in." };
 
   // Selecting the full joined shape directly off the UPDATE's own RETURNING

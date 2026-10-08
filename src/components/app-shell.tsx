@@ -452,7 +452,7 @@ export function AppShell({ role, children }: { role: Role | null; children: Reac
         <SidebarContent idPrefix="desktop" role={role} fullName={fullName} pathname={pathname} />
       </aside>
 
-      <main className="min-w-0 flex-1 px-4 pt-5 pb-28 print:m-0 print:p-0 sm:px-8 sm:py-8">{children}</main>
+      <main className="min-w-0 flex-1 px-4 pt-5 pb-28 print:m-0 print:block print:p-0 sm:px-8 sm:py-8 lg:flex lg:flex-col">{children}</main>
 
       <MobileTabBar role={role} fullName={fullName} pathname={pathname} />
     </div>

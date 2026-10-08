@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { escapeLikePattern, looksLikeUuid } from "@/lib/escape-like";
 import { findOrCreate } from "@/lib/find-or-create";
 import { singleSerialMatch } from "@/lib/serial";
+import { getAuthUser } from "@/lib/supabase/auth-user";
 
 export type EditableUnit = {
   id: string;
@@ -97,9 +98,7 @@ export async function updateUnitDetails(
   input: UpdateUnitDetailsInput
 ): Promise<FindResult> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser(supabase);
   if (!user) return { ok: false, error: "Not signed in." };
 
   const brandName = input.brandName.trim();

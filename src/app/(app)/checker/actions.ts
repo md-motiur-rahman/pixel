@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { fetchAllPages } from "@/lib/fetch-all-pages";
 import type { AdjustResult } from "@/lib/adjust-stock";
 import { looksLikeUuid } from "@/lib/escape-like";
+import { getAuthUser } from "@/lib/supabase/auth-user";
 
 export type TallyRow = {
   skuLineId: string;
@@ -59,9 +60,7 @@ async function computeTally(
 // resume the checker's own unfinished session instead of orphaning it.
 export async function getActiveStockCount(): Promise<{ stockCountId: string } | null> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser(supabase);
   if (!user) return null;
 
   const { data } = await supabase
@@ -78,9 +77,7 @@ export async function getActiveStockCount(): Promise<{ stockCountId: string } | 
 
 export async function startStockCount(): Promise<{ ok: true; stockCountId: string } | { ok: false; error: string }> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser(supabase);
   if (!user) return { ok: false, error: "Not signed in." };
 
   const { data, error } = await supabase

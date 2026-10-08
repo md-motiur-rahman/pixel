@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Printer, Search } from "lucide-react";
-import { findUnitForEdit, type EditableUnit } from "@/app/tester/edit-actions";
+import { findUnitForEdit, type EditableUnit } from "@/app/(app)/tester/edit-actions";
 import { SerialInput } from "@/components/serial-input";
 import { CameraScanButton } from "@/components/camera-scan-button";
 import { Badge, Button, Card, Message } from "@/components/ui";

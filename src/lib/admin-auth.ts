@@ -1,11 +1,10 @@
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/supabase/auth-user";
 
 export async function requireAdmin() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser(supabase);
   if (!user) return { ok: false as const, error: "Not signed in." };
 
   const { data: caller } = await supabase.from("profiles").select("role").eq("id", user.id).single();

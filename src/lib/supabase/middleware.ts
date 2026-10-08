@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { getAuthUser } from "@/lib/supabase/auth-user";
 
 const ROLE_HOME: Record<string, string> = {
   admin: "/admin/inventory",
@@ -30,9 +31,7 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser(supabase);
 
   const path = request.nextUrl.pathname;
   const isLoginPage = path === "/login";

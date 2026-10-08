@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { escapeLikePattern } from "@/lib/escape-like";
 import { findOrCreate } from "@/lib/find-or-create";
+import { getAuthUser } from "@/lib/supabase/auth-user";
 
 export type CreateTestedUnitInput = {
   brandId: string | null;
@@ -24,9 +25,7 @@ export async function createTestedUnit(
 ): Promise<CreateTestedUnitResult> {
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser(supabase);
   if (!user) return { ok: false, error: "Not signed in." };
 
   const brandName = input.brandName.trim();
