@@ -5,11 +5,7 @@ export default async function DispatcherLayout({ children }: { children: React.R
   const profile = await getCurrentProfile();
 
   return (
-    <AppShell
-      title="Dispatcher"
-      subtitle="Scan to look up or pick a camera"
-      isAdmin={profile?.role === "admin"}
-    >
+    <AppShell role={profile?.role ?? null}>
       <div className="mx-auto max-w-xl">{children}</div>
     </AppShell>
   );

@@ -10,6 +10,7 @@ import {
   type VariantRow,
 } from "./catalog-actions";
 import { Button, Card, Input, Message, Select } from "@/components/ui";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 
 export function VariantsSection() {
   const [model, setModel] = useState<ComboboxOption | null>(null);
@@ -18,6 +19,7 @@ export function VariantsSection() {
   const [mergeTarget, setMergeTarget] = useState<Record<string, string>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [confirmMerge, setConfirmMerge] = useState<{ source: VariantRow; target: VariantRow } | null>(null);
 
   async function refresh(modelId: string) {
     const data = await listVariantsForModel(modelId);
@@ -60,9 +62,9 @@ export function VariantsSection() {
 
   return (
     <Card className="overflow-hidden">
-      <div className="border-b border-neutral-200 px-4 py-4 sm:px-5">
-        <h2 className="text-sm font-semibold text-neutral-900">Colors</h2>
-        <p className="mt-0.5 text-sm text-neutral-500">Pick a model to rename or merge its duplicate colors.</p>
+      <div className="border-b border-line px-4 py-4 sm:px-5">
+        <h2 className="text-sm font-semibold text-fg">Colors</h2>
+        <p className="mt-0.5 text-sm text-fg-muted">Pick a model to rename or merge its duplicate colors.</p>
       </div>
       <div className="px-4 py-3.5 sm:px-5">
         <Combobox
@@ -78,7 +80,7 @@ export function VariantsSection() {
       {model && (
         <>
           {message && <Message variant="error" className="px-4 pb-2 sm:px-5">{message}</Message>}
-          <ul className="divide-y divide-neutral-100">
+          <ul className="divide-y divide-line-soft">
             {variants.map((v) => (
               <li key={v.id} className="space-y-2.5 px-4 py-3.5 sm:px-5">
                 <div className="flex gap-2">
@@ -99,7 +101,7 @@ export function VariantsSection() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-xs text-neutral-400">merge into</span>
+                  <span className="text-xs text-fg-subtle">merge into</span>
                   <Select
                     value={mergeTarget[v.id] ?? ""}
                     onChange={(e) => setMergeTarget((m) => ({ ...m, [v.id]: e.target.value }))}
@@ -117,7 +119,10 @@ export function VariantsSection() {
                   <Button
                     size="sm"
                     variant="destructive"
-                    onClick={() => handleMerge(v.id)}
+                    onClick={() => {
+                      const target = variants.find((other) => other.id === mergeTarget[v.id]);
+                      if (target) setConfirmMerge({ source: v, target });
+                    }}
                     disabled={busyId === v.id || !mergeTarget[v.id]}
                   >
                     Merge
@@ -126,13 +131,38 @@ export function VariantsSection() {
               </li>
             ))}
             {variants.length === 0 && (
-              <li className="px-4 py-6 text-center text-sm text-neutral-500 sm:px-5">
+              <li className="px-4 py-6 text-center text-sm text-fg-muted sm:px-5">
                 No colors for this model yet.
               </li>
             )}
           </ul>
         </>
       )}
+      <ConfirmDialog
+        open={confirmMerge !== null}
+        onOpenChange={(open) => {
+          if (!open) setConfirmMerge(null);
+        }}
+        title="Merge colors?"
+        description={
+          confirmMerge && (
+            <>
+              <p>
+                Everything under <span className="font-medium text-fg">&ldquo;{confirmMerge.source.color}&rdquo;</span> moves to{" "}
+                <span className="font-medium text-fg">&ldquo;{confirmMerge.target.color}&rdquo;</span>, then &ldquo;{confirmMerge.source.color}&rdquo; is deleted.
+              </p>
+              <p>Its cameras and stock are moved too. This can&rsquo;t be undone.</p>
+            </>
+          )
+        }
+        confirmLabel="Merge colors"
+        destructive
+        busy={confirmMerge !== null && busyId === confirmMerge.source.id}
+        onConfirm={() => {
+          if (!confirmMerge) return;
+          void handleMerge(confirmMerge.source.id).then(() => setConfirmMerge(null));
+        }}
+      />
     </Card>
   );
 }

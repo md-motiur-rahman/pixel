@@ -1,13 +1,102 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 
-/* This is an internal ops tool used on shared warehouse devices — committing to
-   one deliberate light theme (rather than following the OS dark-mode setting)
-   keeps every screen predictable and avoids native form controls silently
-   inheriting light text on a light background. */
+/* Glassmorphism design system with light + dark themes.
+   next-themes toggles the `dark` class on <html>; every colour below is a
+   semantic token so components never need per-theme classes. */
+
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   color-scheme: light;
-  --background: #f7f7f8;
-  --foreground: #18181b;
+  --background: #eceffd;
+  --foreground: #14142b;
+
+  --fg: #14142b;
+  --fg-muted: rgb(20 20 43 / 0.72);
+  --fg-subtle: rgb(20 20 43 / 0.52);
+
+  --glass: rgb(255 255 255 / 0.55);
+  --glass-from: rgb(255 255 255 / 0.75);
+  --glass-to: rgb(255 255 255 / 0.35);
+  --glass-strong: rgb(255 255 255 / 0.82);
+  --glass-hover: rgb(60 50 160 / 0.08);
+  --glass-soft: rgb(60 50 160 / 0.05);
+  --line: rgb(40 40 110 / 0.14);
+  --line-soft: rgb(40 40 110 / 0.08);
+  --glass-shadow: 0 1px 0 rgb(255 255 255 / 0.9) inset, 0 10px 36px rgb(70 60 160 / 0.14);
+
+  --field: rgb(255 255 255 / 0.7);
+  --field-hover: rgb(255 255 255 / 0.9);
+  --field-focus: #fff;
+
+  --accent: #6d5bff;
+  --accent-strong: #5340ee;
+
+  --danger: #be123c;
+  --danger-soft: rgb(225 29 72 / 0.09);
+  --danger-line: rgb(225 29 72 / 0.28);
+  --success: #047857;
+  --success-soft: rgb(5 150 105 / 0.1);
+  --success-line: rgb(5 150 105 / 0.3);
+  --warn: #b45309;
+  --warn-soft: rgb(217 119 6 / 0.12);
+  --warn-line: rgb(217 119 6 / 0.32);
+  --link: #5340ee;
+  --link-hover: #3a2aba;
+
+  --aurora-1: rgb(109 91 255 / 0.28);
+  --aurora-2: rgb(236 72 153 / 0.2);
+  --aurora-3: rgb(34 211 238 / 0.25);
+  --blob-1: rgb(139 123 255 / 0.4);
+  --blob-2: rgb(244 114 182 / 0.3);
+  --blob-3: rgb(56 189 248 / 0.3);
+}
+
+.dark {
+  color-scheme: dark;
+  --background: #0b0b1e;
+  --foreground: #f4f4ff;
+
+  --fg: #f4f4ff;
+  --fg-muted: rgb(224 228 255 / 0.74);
+  --fg-subtle: rgb(224 228 255 / 0.5);
+
+  --glass: rgb(255 255 255 / 0.07);
+  --glass-from: rgb(255 255 255 / 0.09);
+  --glass-to: rgb(255 255 255 / 0.02);
+  --glass-strong: rgb(24 22 58 / 0.7);
+  --glass-hover: rgb(255 255 255 / 0.12);
+  --glass-soft: rgb(255 255 255 / 0.05);
+  --line: rgb(255 255 255 / 0.14);
+  --line-soft: rgb(255 255 255 / 0.08);
+  --glass-shadow: 0 0 0 1px rgb(255 255 255 / 0.06) inset, 0 8px 32px rgb(4 4 24 / 0.45);
+
+  --field: rgb(255 255 255 / 0.06);
+  --field-hover: rgb(255 255 255 / 0.09);
+  --field-focus: rgb(255 255 255 / 0.1);
+
+  --accent: #8b7bff;
+  --accent-strong: #6d5bff;
+
+  --danger: #fda4af;
+  --danger-soft: rgb(244 63 94 / 0.12);
+  --danger-line: rgb(251 113 133 / 0.3);
+  --success: #6ee7b7;
+  --success-soft: rgb(52 211 153 / 0.13);
+  --success-line: rgb(52 211 153 / 0.3);
+  --warn: #fde68a;
+  --warn-soft: rgb(251 191 36 / 0.14);
+  --warn-line: rgb(251 191 36 / 0.3);
+  --link: #b4a8ff;
+  --link-hover: #d6ceff;
+
+  --aurora-1: rgb(109 91 255 / 0.35);
+  --aurora-2: rgb(236 72 153 / 0.22);
+  --aurora-3: rgb(34 211 238 / 0.2);
+  --blob-1: rgb(124 58 237 / 0.3);
+  --blob-2: rgb(217 70 239 / 0.2);
+  --blob-3: rgb(34 211 238 / 0.15);
 }
 
 @theme inline {
@@ -15,6 +104,63 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-subtle: var(--fg-subtle);
+
+  --color-glass: var(--glass);
+  --color-glass-hover: var(--glass-hover);
+  --color-glass-soft: var(--glass-soft);
+  --color-line: var(--line);
+  --color-line-soft: var(--line-soft);
+
+  --color-field: var(--field);
+  --color-field-hover: var(--field-hover);
+  --color-field-focus: var(--field-focus);
+
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-danger-line: var(--danger-line);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-success-line: var(--success-line);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-warn-line: var(--warn-line);
+  --color-link: var(--link);
+  --color-link-hover: var(--link-hover);
+
+  --animate-float: float 18s ease-in-out infinite;
+  --animate-float-slow: float 26s ease-in-out infinite reverse;
+
+  @keyframes float {
+    0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+    50% { transform: translate3d(4%, 6%, 0) scale(1.08); }
+  }
+}
+
+/* Frosted-glass surface: translucent fill, blur + saturate, hairline border and
+   a faint top-left highlight so the pane reads as a physical sheet of glass. */
+@utility glass {
+  background-color: var(--glass);
+  background-image: linear-gradient(135deg, var(--glass-from), var(--glass-to));
+  border: 1px solid var(--line);
+  box-shadow: var(--glass-shadow);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  backdrop-filter: blur(24px) saturate(160%);
+}
+
+@utility glass-strong {
+  background-color: var(--glass-strong);
+  background-image: linear-gradient(135deg, var(--glass-from), var(--glass-to));
+  border: 1px solid var(--line);
+  box-shadow: var(--glass-shadow);
+  -webkit-backdrop-filter: blur(32px) saturate(170%);
+  backdrop-filter: blur(32px) saturate(170%);
 }
 
 body {
@@ -22,10 +168,57 @@ body {
   color: var(--foreground);
 }
 
+/* Fixed aurora backdrop — sits behind everything, never scrolls. */
+.aurora {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  background:
+    radial-gradient(60rem 40rem at 10% -10%, var(--aurora-1), transparent 60%),
+    radial-gradient(50rem 36rem at 100% 10%, var(--aurora-2), transparent 60%),
+    radial-gradient(50rem 40rem at 50% 120%, var(--aurora-3), transparent 60%),
+    var(--background);
+}
+
 @layer base {
   input,
   select,
   textarea {
     color: var(--foreground);
+  }
+
+  /* Native dropdown lists ignore backdrop-filter, so give them a solid
+     surface instead of inheriting translucent-on-translucent. */
+  option {
+    background-color: var(--background);
+    color: var(--foreground);
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--accent) 40%, transparent);
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--line) transparent;
+  }
+}
+
+@media print {
+  .aurora {
+    display: none;
+  }
+  body {
+    background: #fff;
+    color: #000;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
   }
 }

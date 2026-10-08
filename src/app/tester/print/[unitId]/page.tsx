@@ -42,9 +42,9 @@ export default async function PrintLabelPage({
   const qrDataUrl = await QRCode.toDataURL(unit.id, { margin: 1, width: 320 });
 
   return (
-    <div className="min-h-dvh bg-neutral-50 px-4 py-8 print:min-h-0 print:bg-white print:p-0">
+    <div className="min-h-dvh px-4 py-8 print:min-h-0 print:bg-white print:p-0">
       <div className="mx-auto max-w-sm print:hidden">
-        <div className="flex items-center gap-2 text-emerald-700">
+        <div className="flex items-center gap-2 text-success">
           <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5 shrink-0">
             <path
               fillRule="evenodd"
@@ -54,7 +54,7 @@ export default async function PrintLabelPage({
           </svg>
           <p className="text-sm font-medium">Camera saved</p>
         </div>
-        <p className="mt-1 text-sm text-neutral-500">
+        <p className="mt-1 text-sm text-fg-muted">
           {brandName} {modelName} {color} — Grade {gradeCode}, serial {unit.serial_number}
           {unit.note ? `, note: ${unit.note}` : ""}
         </p>

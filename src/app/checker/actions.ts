@@ -2,6 +2,8 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { fetchAllPages } from "@/lib/fetch-all-pages";
+import type { AdjustResult } from "@/lib/adjust-stock";
+import { looksLikeUuid } from "@/lib/escape-like";
 
 export type TallyRow = {
   skuLineId: string;
@@ -102,6 +104,12 @@ export async function recordScan(
 > {
   const unitId = rawScan.trim();
   if (!unitId) return { ok: false, error: "Empty scan.", permanent: true };
+  // units.id is a uuid column — anything else (a typed serial, a stray barcode)
+  // would make Postgres throw a cast error, which reads as a retriable failure
+  // and would jam the offline queue. It can never succeed, so reject it for good.
+  if (!looksLikeUuid(unitId)) {
+    return { ok: false, error: "That isn't one of our camera QR codes.", permanent: true };
+  }
   const supabase = await createClient();
 
   const { data: unit, error: unitError } = await supabase
@@ -156,4 +164,31 @@ export async function finishStockCount(stockCountId: string): Promise<ActionResu
     .eq("id", stockCountId);
   if (error) return { ok: false, error: error.message };
   return { ok: true };
+}
+
+// Resolve one line's difference: scanned cameras recorded as picked/shipped go
+// back in stock, and the system figure is set to what was physically scanned.
+// `expectedSystemQty` is what the checker saw and confirmed; the database
+// refuses if the stock has moved since. See migration_4.
+export async function adjustFromCount(
+  stockCountId: string,
+  skuLineId: string,
+  expectedSystemQty: number
+): Promise<AdjustResult> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("resolve_stock_count_line", {
+    p_stock_count_id: stockCountId,
+    p_sku_line_id: skuLineId,
+    p_expected_quantity: expectedSystemQty,
+  });
+  if (error) {
+    if (error.code === "PGRST202") {
+      return {
+        ok: false,
+        error: "Count adjustments need a database update — run supabase/migration_4_serials_and_count_fixes.sql in Supabase.",
+      };
+    }
+    return { ok: false, error: error.message };
+  }
+  return { ok: true, quantity: data };
 }

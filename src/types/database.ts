@@ -49,6 +49,7 @@ export interface Database {
           model_variant_id: string;
           grade_id: string;
           quantity: number;
+          quantity_adjustment: number;
           created_at: string;
         },
         { code?: string; model_variant_id: string; grade_id: string },
@@ -93,6 +94,21 @@ export interface Database {
         { checker_id: string; note?: string | null },
         { finished_at?: string | null; note?: string | null }
       >;
+      stock_adjustments: Table<
+        {
+          id: string;
+          sku_line_id: string;
+          adjusted_by: string;
+          old_quantity: number;
+          new_quantity: number;
+          source: "inventory" | "stock_count";
+          stock_count_id: string | null;
+          note: string | null;
+          created_at: string;
+        },
+        Record<string, never>,
+        Record<string, never>
+      >;
       stock_count_scans: Table<
         { id: string; stock_count_id: string; unit_id: string; scanned_at: string },
         { stock_count_id: string; unit_id: string },
@@ -106,6 +122,21 @@ export interface Database {
       merge_brands: { Args: { source_id: string; target_id: string }; Returns: undefined };
       merge_models: { Args: { source_id: string; target_id: string }; Returns: undefined };
       merge_variants: { Args: { source_id: string; target_id: string }; Returns: undefined };
+      adjust_sku_line_quantity: {
+        Args: {
+          p_sku_line_id: string;
+          p_new_quantity: number;
+          p_expected_quantity: number;
+          p_source: "inventory" | "stock_count";
+          p_stock_count_id?: string | null;
+          p_note?: string | null;
+        };
+        Returns: number;
+      };
+      resolve_stock_count_line: {
+        Args: { p_stock_count_id: string; p_sku_line_id: string; p_expected_quantity: number };
+        Returns: number;
+      };
       get_stock_count_tally: {
         Args: { p_stock_count_id: string };
         Returns: {

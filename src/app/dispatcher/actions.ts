@@ -1,6 +1,8 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { escapeLikePattern, looksLikeUuid } from "@/lib/escape-like";
+import { singleSerialMatch } from "@/lib/serial";
 import type { UnitStatus } from "@/types/database";
 
 export type UnitDetails = {
@@ -71,10 +73,24 @@ export async function lookupUnit(rawScan: string): Promise<UnitLookupResult> {
   if (!unitId) return { ok: false, error: "Empty scan." };
   const supabase = await createClient();
 
-  const { data, error } = await supabase.from("units").select(UNIT_SELECT).eq("id", unitId).maybeSingle();
-  if (error) return { ok: false, error: error.message };
-  if (!data) return { ok: false, error: "No camera found for that QR code." };
-  return { ok: true, unit: toUnitDetails(data) };
+  // Our QR labels encode the unit id; anything else is treated as a serial
+  // number (typed, or read from the camera's own barcode).
+  if (looksLikeUuid(unitId)) {
+    const { data, error } = await supabase.from("units").select(UNIT_SELECT).eq("id", unitId).maybeSingle();
+    if (error) return { ok: false, error: error.message };
+    if (data) return { ok: true, unit: toUnitDetails(data) };
+  }
+
+  const { data: rows, error: serialError } = await supabase
+    .from("units")
+    .select(UNIT_SELECT)
+    .ilike("serial_number", escapeLikePattern(unitId))
+    .limit(2);
+  if (serialError) return { ok: false, error: serialError.message };
+  const match = singleSerialMatch(rows);
+  if (!match.ok) return { ok: false, error: match.error };
+  if (!match.row) return { ok: false, error: "No camera found for that QR code or serial number." };
+  return { ok: true, unit: toUnitDetails(match.row) };
 }
 
 export async function pickUnit(unitId: string): Promise<UnitLookupResult> {

@@ -30,12 +30,12 @@ export function StaffRow({
     <li className="flex flex-col gap-3 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
       <div className="min-w-0">
         <div className="flex items-center gap-2">
-          <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", isActive ? "bg-emerald-500" : "bg-neutral-300")} />
-          <p className="truncate text-sm font-medium text-neutral-900">{fullName}</p>
-          {!isActive && <span className="shrink-0 text-xs text-neutral-400">deactivated</span>}
+          <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", isActive ? "bg-success" : "bg-fg-subtle")} />
+          <p className="truncate text-sm font-medium text-fg">{fullName}</p>
+          {!isActive && <span className="shrink-0 text-xs text-fg-subtle">deactivated</span>}
         </div>
-        <p className="truncate pl-3.5 text-xs text-neutral-500">{email}</p>
-        {message && <p className="pl-3.5 text-xs text-neutral-500">{message}</p>}
+        <p className="truncate pl-3.5 text-xs text-fg-muted">{email}</p>
+        {message && <p className="pl-3.5 text-xs text-fg-muted">{message}</p>}
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -134,7 +134,7 @@ export function StaffRow({
               type="button"
               disabled={isPending}
               onClick={() => setConfirmingDelete(false)}
-              className="text-sm text-neutral-500 hover:text-neutral-700"
+              className="text-sm text-fg-muted hover:text-fg"
             >
               Cancel
             </button>

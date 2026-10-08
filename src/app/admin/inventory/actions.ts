@@ -1,7 +1,9 @@
 "use server";
 
 import { requireAdmin } from "@/lib/admin-auth";
+import { revalidatePath } from "next/cache";
 import { fetchAllPages } from "@/lib/fetch-all-pages";
+import { adjustStock, type AdjustResult } from "@/lib/adjust-stock";
 
 export type InventoryRow = {
   skuLineId: string;
@@ -46,4 +48,22 @@ export async function listInventory(): Promise<InventoryRow[]> {
   );
 
   return rows;
+}
+
+export async function adjustInventoryQuantity(
+  skuLineId: string,
+  newQuantity: number,
+  expectedQuantity: number,
+  note?: string
+): Promise<AdjustResult> {
+  const admin = await requireAdmin();
+  if (!admin.ok) return { ok: false, error: admin.error };
+
+  const result = await adjustStock(
+    admin.supabase,
+    { skuLineId, newQuantity, expectedQuantity, note },
+    { source: "inventory" }
+  );
+  if (result.ok) revalidatePath("/admin/inventory");
+  return result;
 }

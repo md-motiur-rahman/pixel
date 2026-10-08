@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { Button, Card, Field, Input, Message } from "@/components/ui";
+import { AuthCard } from "@/components/auth-card";
+import { Button, Field, Input, Message } from "@/components/ui";
 
 export default function SetPasswordPage() {
   const router = useRouter();
@@ -74,19 +75,18 @@ export default function SetPasswordPage() {
   }
 
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-neutral-50 px-4 py-10">
-      <Card className="w-full max-w-sm p-6 sm:p-7">
-        <h1 className="text-lg font-semibold tracking-tight text-neutral-900">Set your password</h1>
-        <p className="mt-1 text-sm text-neutral-500">Choose a password to finish creating your account.</p>
+    <AuthCard>
+        <h1 className="text-lg font-semibold tracking-tight text-fg">Set your password</h1>
+        <p className="mt-1 text-sm text-fg-muted">Choose a password to finish creating your account.</p>
 
         {ready ? (
           <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-            <Field label="New password">
+            <Field label="New password" hint="At least 8 characters.">
               <Input
                 type="password"
                 autoComplete="new-password"
                 required
-                minLength={6}
+                minLength={8}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
@@ -97,9 +97,8 @@ export default function SetPasswordPage() {
             </Button>
           </form>
         ) : (
-          <p className="mt-6 text-sm text-neutral-500">{error ?? "Checking your invite link…"}</p>
+          <p className="mt-6 text-sm text-fg-muted">{error ?? "Checking your invite link…"}</p>
         )}
-      </Card>
-    </div>
+      </AuthCard>
   );
 }

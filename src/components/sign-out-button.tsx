@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { LogOut } from "lucide-react";
 import { Button } from "@/components/ui";
 
 export function SignOutButton({ className }: { className?: string }) {
@@ -26,6 +27,7 @@ export function SignOutButton({ className }: { className?: string }) {
         router.refresh();
       }}
     >
+      <LogOut aria-hidden="true" />
       Sign out
     </Button>
   );

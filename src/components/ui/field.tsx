@@ -19,7 +19,7 @@ export function Field({ label, hint, children }: { label: string; hint?: string;
     <div>
       <Label htmlFor={controlId}>{label}</Label>
       {control}
-      {hint && <p className="mt-1.5 text-xs text-neutral-400">{hint}</p>}
+      {hint && <p className="mt-1.5 text-xs text-fg-subtle">{hint}</p>}
     </div>
   );
 }

@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Combobox, type ComboboxOption } from "@/components/combobox";
+import { SerialInput } from "@/components/serial-input";
 import { searchBrands, searchModels } from "./search-actions";
 import { createTestedUnit } from "./actions";
 import { Button, Field, Input, Message, Select } from "@/components/ui";
@@ -58,7 +59,7 @@ export function TesterForm({ grades }: { grades: Grade[] }) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="space-y-5 rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm shadow-neutral-200/60 sm:p-6"
+      className="glass space-y-5 rounded-3xl p-5 sm:p-6"
     >
       <Combobox
         label="Brand"
@@ -107,7 +108,7 @@ export function TesterForm({ grades }: { grades: Grade[] }) {
       </Field>
 
       <Field label="Serial number">
-        <Input type="text" required value={serialNumber} onChange={(e) => setSerialNumber(e.target.value)} />
+        <SerialInput required value={serialNumber} onValueChange={setSerialNumber} />
       </Field>
 
       <Field label="Note" hint="Optional — visible to the dispatcher when they pick this camera.">

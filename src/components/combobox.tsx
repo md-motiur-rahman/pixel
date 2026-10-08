@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import { Plus } from "lucide-react";
+import { Popover } from "radix-ui";
 import { Input, Label } from "@/components/ui";
 
 export type ComboboxOption = { id: string; label: string };
@@ -29,16 +31,6 @@ export function Combobox({
   const [searchFailed, setSearchFailed] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputId = useId();
-
-  useEffect(() => {
-    function onClickOutside(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", onClickOutside);
-    return () => document.removeEventListener("mousedown", onClickOutside);
-  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -70,58 +62,74 @@ export function Combobox({
   const exactMatch = options.some((o) => o.label.toLowerCase() === query.trim().toLowerCase());
 
   return (
-    <div ref={containerRef} className="relative">
-      {label && <Label htmlFor={inputId}>{label}</Label>}
-      <Input
-        id={inputId}
-        type="text"
-        disabled={disabled}
-        placeholder={placeholder}
-        value={query}
-        onChange={(e) => {
-          setQuery(e.target.value);
-          setOpen(true);
-        }}
-        onFocus={() => setOpen(true)}
-      />
-      {open && query.trim().length > 0 && (
-        <div className="absolute z-10 mt-1.5 max-h-56 w-full overflow-auto rounded-lg border border-neutral-200 bg-white py-1 shadow-lg shadow-neutral-900/10">
-          {loading && <div className="px-3.5 py-2.5 text-sm text-neutral-400">Searching…</div>}
-          {!loading && searchFailed && (
-            <div className="px-3.5 py-2.5 text-sm text-red-600">
-              Couldn&rsquo;t search — check your connection and try again.
-            </div>
-          )}
-          {!loading &&
-            !searchFailed &&
-            options.map((opt) => (
+    <Popover.Root open={open && query.trim().length > 0} onOpenChange={setOpen}>
+      <div ref={containerRef} className="relative">
+        {label && <Label htmlFor={inputId}>{label}</Label>}
+        <Popover.Anchor asChild>
+        <Input
+          id={inputId}
+          type="text"
+          disabled={disabled}
+          placeholder={placeholder}
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setOpen(true);
+          }}
+          onFocus={() => setOpen(true)}
+        />
+        </Popover.Anchor>
+        <Popover.Portal>
+          <Popover.Content
+            align="start"
+            sideOffset={6}
+            collisionPadding={12}
+            // Keep focus in the text input while the list is open.
+            onOpenAutoFocus={(e) => e.preventDefault()}
+            onCloseAutoFocus={(e) => e.preventDefault()}
+            // Clicking the input itself is not "outside" — only dismiss for clicks elsewhere.
+            onInteractOutside={(e) => {
+              if (containerRef.current?.contains(e.target as Node)) e.preventDefault();
+            }}
+            className="glass-strong z-50 max-h-56 w-(--radix-popover-trigger-width) overflow-auto rounded-2xl py-1.5 outline-none data-[state=open]:animate-in data-[state=open]:fade-in data-[state=open]:zoom-in-95"
+          >
+            {loading && <div className="px-3.5 py-2.5 text-sm text-fg-subtle">Searching…</div>}
+            {!loading && searchFailed && (
+              <div className="px-3.5 py-2.5 text-sm text-danger">
+                Couldn&rsquo;t search — check your connection and try again.
+              </div>
+            )}
+            {!loading &&
+              !searchFailed &&
+              options.map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => {
+                    onSelect(opt);
+                    setQuery(opt.label);
+                    setOpen(false);
+                  }}
+                  className="block w-full px-3.5 py-2.5 text-left text-sm text-fg transition-colors hover:bg-glass-hover"
+                >
+                  {opt.label}
+                </button>
+              ))}
+            {!loading && !searchFailed && !exactMatch && query.trim().length > 0 && (
               <button
-                key={opt.id}
                 type="button"
                 onClick={() => {
-                  onSelect(opt);
-                  setQuery(opt.label);
+                  onCreateNew(query.trim());
                   setOpen(false);
                 }}
-                className="block w-full px-3.5 py-2.5 text-left text-sm text-neutral-900 hover:bg-indigo-50"
+                className="flex w-full items-center gap-1.5 border-t border-line-soft px-3.5 py-2.5 text-left text-sm font-medium text-link transition-colors hover:bg-glass-hover"
               >
-                {opt.label}
+                <Plus aria-hidden="true" className="size-4" /> Add &ldquo;{query.trim()}&rdquo;
               </button>
-            ))}
-          {!loading && !searchFailed && !exactMatch && query.trim().length > 0 && (
-            <button
-              type="button"
-              onClick={() => {
-                onCreateNew(query.trim());
-                setOpen(false);
-              }}
-              className="block w-full border-t border-neutral-100 px-3.5 py-2.5 text-left text-sm font-medium text-indigo-600 hover:bg-indigo-50"
-            >
-              + Add &ldquo;{query.trim()}&rdquo;
-            </button>
-          )}
-        </div>
-      )}
-    </div>
+            )}
+          </Popover.Content>
+        </Popover.Portal>
+      </div>
+    </Popover.Root>
   );
 }

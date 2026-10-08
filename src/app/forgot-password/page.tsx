@@ -3,7 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { Button, Card, Field, Input, Message } from "@/components/ui";
+import { AuthCard } from "@/components/auth-card";
+import { Button, Field, Input, Message } from "@/components/ui";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -35,9 +36,8 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-neutral-50 px-4 py-10">
-      <Card className="w-full max-w-sm p-6 sm:p-7">
-        <h1 className="text-lg font-semibold tracking-tight text-neutral-900">Reset your password</h1>
+    <AuthCard>
+        <h1 className="text-lg font-semibold tracking-tight text-fg">Reset your password</h1>
 
         {sent ? (
           <Message variant="success">
@@ -47,7 +47,7 @@ export default function ForgotPasswordPage() {
           </Message>
         ) : (
           <>
-            <p className="mt-1 text-sm text-neutral-500">
+            <p className="mt-1 text-sm text-fg-muted">
               Enter your email and we&rsquo;ll send you a link to set a new password.
             </p>
             <form onSubmit={handleSubmit} className="mt-6 space-y-4">
@@ -67,10 +67,9 @@ export default function ForgotPasswordPage() {
           </>
         )}
 
-        <Link href="/login" className="mt-5 block text-sm font-medium text-indigo-600 hover:text-indigo-700">
+        <Link href="/login" className="mt-5 block text-sm font-medium text-link hover:text-link-hover">
           Back to sign in
         </Link>
-      </Card>
-    </div>
+      </AuthCard>
   );
 }

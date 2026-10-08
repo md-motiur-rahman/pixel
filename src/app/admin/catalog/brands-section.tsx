@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { listAllBrands, renameBrand, mergeBrandsAction, type BrandRow } from "./catalog-actions";
 import { Button, Card, Input, Message, Select } from "@/components/ui";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 
 export function BrandsSection({ initialBrands }: { initialBrands: BrandRow[] }) {
   const [brands, setBrands] = useState<BrandRow[]>(initialBrands);
@@ -10,6 +11,7 @@ export function BrandsSection({ initialBrands }: { initialBrands: BrandRow[] }) 
   const [mergeTarget, setMergeTarget] = useState<Record<string, string>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [confirmMerge, setConfirmMerge] = useState<{ source: BrandRow; target: BrandRow } | null>(null);
 
   async function refresh() {
     const data = await listAllBrands();
@@ -46,12 +48,12 @@ export function BrandsSection({ initialBrands }: { initialBrands: BrandRow[] }) 
 
   return (
     <Card className="overflow-hidden">
-      <div className="border-b border-neutral-200 px-4 py-4 sm:px-5">
-        <h2 className="text-sm font-semibold text-neutral-900">Brands</h2>
-        <p className="mt-0.5 text-sm text-neutral-500">Rename a typo, or merge a duplicate into another brand.</p>
+      <div className="border-b border-line px-4 py-4 sm:px-5">
+        <h2 className="text-sm font-semibold text-fg">Brands</h2>
+        <p className="mt-0.5 text-sm text-fg-muted">Rename a typo, or merge a duplicate into another brand.</p>
       </div>
       {message && <Message variant="error" className="px-4 pt-3 sm:px-5">{message}</Message>}
-      <ul className="divide-y divide-neutral-100">
+      <ul className="divide-y divide-line-soft">
         {brands.map((b) => (
           <li key={b.id} className="space-y-2.5 px-4 py-3.5 sm:px-5">
             <div className="flex gap-2">
@@ -72,7 +74,7 @@ export function BrandsSection({ initialBrands }: { initialBrands: BrandRow[] }) 
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs text-neutral-400">merge into</span>
+              <span className="text-xs text-fg-subtle">merge into</span>
               <Select
                 value={mergeTarget[b.id] ?? ""}
                 onChange={(e) => setMergeTarget((m) => ({ ...m, [b.id]: e.target.value }))}
@@ -90,7 +92,10 @@ export function BrandsSection({ initialBrands }: { initialBrands: BrandRow[] }) 
               <Button
                 size="sm"
                 variant="destructive"
-                onClick={() => handleMerge(b.id)}
+                onClick={() => {
+                  const target = brands.find((other) => other.id === mergeTarget[b.id]);
+                  if (target) setConfirmMerge({ source: b, target });
+                }}
                 disabled={busyId === b.id || !mergeTarget[b.id]}
               >
                 Merge
@@ -99,9 +104,34 @@ export function BrandsSection({ initialBrands }: { initialBrands: BrandRow[] }) 
           </li>
         ))}
         {brands.length === 0 && (
-          <li className="px-4 py-6 text-center text-sm text-neutral-500 sm:px-5">No brands yet.</li>
+          <li className="px-4 py-6 text-center text-sm text-fg-muted sm:px-5">No brands yet.</li>
         )}
       </ul>
+      <ConfirmDialog
+        open={confirmMerge !== null}
+        onOpenChange={(open) => {
+          if (!open) setConfirmMerge(null);
+        }}
+        title="Merge brands?"
+        description={
+          confirmMerge && (
+            <>
+              <p>
+                Everything under <span className="font-medium text-fg">&ldquo;{confirmMerge.source.name}&rdquo;</span> moves to{" "}
+                <span className="font-medium text-fg">&ldquo;{confirmMerge.target.name}&rdquo;</span>, then &ldquo;{confirmMerge.source.name}&rdquo; is deleted.
+              </p>
+              <p>Its models, colors and cameras are moved too. This can&rsquo;t be undone.</p>
+            </>
+          )
+        }
+        confirmLabel="Merge brands"
+        destructive
+        busy={confirmMerge !== null && busyId === confirmMerge.source.id}
+        onConfirm={() => {
+          if (!confirmMerge) return;
+          void handleMerge(confirmMerge.source.id).then(() => setConfirmMerge(null));
+        }}
+      />
     </Card>
   );
 }

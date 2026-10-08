@@ -5,3 +5,4 @@ export * from "./label";
 export * from "./field";
 export * from "./card";
 export * from "./message";
+export * from "./badge";

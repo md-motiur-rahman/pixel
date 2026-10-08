@@ -35,7 +35,7 @@ export function InviteForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3 border-b border-neutral-200 p-4 sm:p-5">
+    <form onSubmit={handleSubmit} className="space-y-3 border-b border-line p-4 sm:p-5">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1.4fr_auto]">
         <Field label="Full name">
           <Input type="text" required value={fullName} onChange={(e) => setFullName(e.target.value)} />

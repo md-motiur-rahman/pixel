@@ -38,6 +38,18 @@ export async function createTestedUnit(
     return { ok: false, error: "All fields except note are required." };
   }
 
+  // 0. Serial first — a duplicate would otherwise only fail at the very end,
+  //    after a new brand/model/color had already been created for nothing.
+  const { data: serialRows, error: serialCheckError } = await supabase
+    .from("units")
+    .select("id")
+    .ilike("serial_number", escapeLikePattern(serialNumber))
+    .limit(1);
+  if (serialCheckError) return { ok: false, error: `Could not check serial number: ${serialCheckError.message}` };
+  if (serialRows && serialRows.length > 0) {
+    return { ok: false, error: `Serial number "${serialNumber}" is already in the system.` };
+  }
+
   // 1. Brand — reuse selected id, or find/create by name.
   let brandId = input.brandId;
   if (!brandId) {

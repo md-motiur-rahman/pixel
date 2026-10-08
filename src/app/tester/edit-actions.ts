@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { escapeLikePattern, looksLikeUuid } from "@/lib/escape-like";
 import { findOrCreate } from "@/lib/find-or-create";
+import { singleSerialMatch } from "@/lib/serial";
 
 export type EditableUnit = {
   id: string;
@@ -71,9 +72,11 @@ export async function findUnitForEdit(rawInput: string): Promise<FindResult> {
     .from("units")
     .select(SELECT)
     .ilike("serial_number", escapeLikePattern(value))
-    .maybeSingle();
+    .limit(2);
   if (serialError) return { ok: false, error: serialError.message };
-  if (bySerial) return { ok: true, unit: toEditableUnit(bySerial) };
+  const match = singleSerialMatch(bySerial);
+  if (!match.ok) return { ok: false, error: match.error };
+  if (match.row) return { ok: true, unit: toEditableUnit(match.row) };
 
   return { ok: false, error: "No camera found for that QR code or serial number." };
 }
@@ -106,6 +109,19 @@ export async function updateUnitDetails(
 
   if (!brandName || !modelName || !color || !input.gradeId || !serialNumber) {
     return { ok: false, error: "All fields except note are required." };
+  }
+
+  // Check the serial first, so a clash doesn't leave half-created
+  // brands/models/colors behind in the catalog.
+  const { data: serialRows, error: serialCheckError } = await supabase
+    .from("units")
+    .select("id")
+    .ilike("serial_number", escapeLikePattern(serialNumber))
+    .neq("id", unitId)
+    .limit(1);
+  if (serialCheckError) return { ok: false, error: serialCheckError.message };
+  if (serialRows && serialRows.length > 0) {
+    return { ok: false, error: `Serial number "${serialNumber}" is already used by another camera.` };
   }
 
   // Same find-or-create cascade as creating a unit — a tester correcting a

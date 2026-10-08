@@ -4,7 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { Button, Card, Field, Input, Message } from "@/components/ui";
+import { AuthCard } from "@/components/auth-card";
+import { Button, Field, Input, Message } from "@/components/ui";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -36,10 +37,9 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-neutral-50 px-4 py-10">
-      <Card className="w-full max-w-sm p-6 sm:p-7">
-        <h1 className="text-lg font-semibold tracking-tight text-neutral-900">Pixel Direct</h1>
-        <p className="mt-1 text-sm text-neutral-500">Camera inventory — sign in to continue.</p>
+    <AuthCard>
+        <h1 className="text-lg font-semibold tracking-tight text-fg">Welcome back</h1>
+        <p className="mt-1 text-sm text-fg-muted">Camera inventory — sign in to continue.</p>
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
           <Field label="Email">
@@ -71,12 +71,11 @@ export default function LoginPage() {
 
         <Link
           href="/forgot-password"
-          className="mt-5 block text-sm font-medium text-indigo-600 hover:text-indigo-700"
+          className="mt-5 block text-sm font-medium text-link hover:text-link-hover"
         >
           Forgot your password?
         </Link>
-        <p className="mt-2 text-sm text-neutral-500">Don&rsquo;t have an account? Ask an admin to invite you.</p>
-      </Card>
-    </div>
+        <p className="mt-2 text-sm text-fg-muted">Don&rsquo;t have an account? Ask an admin to invite you.</p>
+      </AuthCard>
   );
 }

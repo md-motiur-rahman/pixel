@@ -2,11 +2,12 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Printer } from "lucide-react";
 import { findUnitForEdit, updateUnitDetails, type EditableUnit } from "./edit-actions";
 import { searchBrands, searchModels } from "./search-actions";
 import { Combobox, type ComboboxOption } from "@/components/combobox";
 import { Button, Card, Field, Input, Message, Select } from "@/components/ui";
-import { CameraScanButton } from "@/components/camera-scan-button";
+import { SerialInput } from "@/components/serial-input";
 
 type Grade = { id: string; code: string; label: string };
 
@@ -109,17 +110,20 @@ export function EditUnitPanel({ grades }: { grades: Grade[] }) {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="text-sm font-medium text-indigo-600 hover:text-indigo-700"
+        className="text-sm font-medium text-link hover:text-link-hover"
       >
-        Fix a mistake on a saved camera
+        Find a saved camera — reprint its label or fix a mistake
       </button>
     );
   }
 
   return (
     <Card className="p-5 sm:p-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-neutral-900">Fix a saved camera</h2>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold text-fg">Find a saved camera</h2>
+          <p className="mt-0.5 text-xs text-fg-subtle">Reprint its QR label or correct its details.</p>
+        </div>
         <button
           onClick={() => {
             setOpen(false);
@@ -133,47 +137,41 @@ export function EditUnitPanel({ grades }: { grades: Grade[] }) {
             setError(null);
             setSuccess(null);
           }}
-          className="text-sm text-neutral-500 hover:text-neutral-700"
+          className="text-sm text-fg-muted hover:text-fg"
         >
           Close
         </button>
       </div>
 
       <form onSubmit={handleSearch} className="mt-3 flex flex-col gap-2 sm:flex-row">
-        <Input
-          type="text"
-          placeholder="Scan the QR or type the serial number"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="flex-1"
-        />
+        <div className="flex-1">
+          <SerialInput
+            placeholder="Type or scan the serial number"
+            aria-label="Serial number or QR"
+            value={search}
+            onValueChange={setSearch}
+            onScanned={(scanned) => void performSearch(scanned)}
+          />
+        </div>
         <Button type="submit" variant="secondary" disabled={loading}>
           {loading ? "Finding…" : "Find"}
         </Button>
       </form>
 
-      <div className="mt-3">
-        <CameraScanButton
-          onScan={(value) => {
-            setSearch(value);
-            void performSearch(value);
-          }}
-        />
-      </div>
 
       {error && <Message variant="error" className="mt-3">{error}</Message>}
 
       {unit && (
         <form onSubmit={handleSave} className="mt-4 space-y-4">
           <div className="flex items-center justify-between gap-3">
-            <p className="text-sm text-neutral-500">Serial {unit.serialNumber}</p>
+            <p className="text-sm text-fg-muted">Serial {unit.serialNumber}</p>
             <Button
               type="button"
-              variant="secondary"
               size="sm"
               onClick={() => router.push(`/tester/print/${unit.id}`)}
             >
-              Print label
+              <Printer aria-hidden="true" />
+              Reprint label
             </Button>
           </div>
 
@@ -225,7 +223,7 @@ export function EditUnitPanel({ grades }: { grades: Grade[] }) {
           </Field>
 
           <Field label="Serial number">
-            <Input type="text" required value={serialNumber} onChange={(e) => setSerialNumber(e.target.value)} />
+            <SerialInput required value={serialNumber} onValueChange={setSerialNumber} />
           </Field>
 
           <Field label="Note">

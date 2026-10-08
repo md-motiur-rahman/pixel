@@ -1,36 +1,37 @@
 import type { ButtonHTMLAttributes } from "react";
+import { Slot } from "radix-ui";
+import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/cn";
 
-type Variant = "primary" | "secondary" | "destructive" | "ghost";
-type Size = "default" | "sm";
-
-const VARIANT_CLASSES: Record<Variant, string> = {
-  primary: "bg-indigo-600 text-white hover:bg-indigo-500 active:bg-indigo-700",
-  secondary: "bg-white text-neutral-700 border border-neutral-300 hover:bg-neutral-50",
-  destructive: "bg-white text-red-600 border border-red-200 hover:bg-red-50",
-  ghost: "text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100",
-};
-
-const SIZE_CLASSES: Record<Size, string> = {
-  default: "min-h-11 px-4 text-sm",
-  sm: "min-h-9 px-3 text-sm",
-};
+export const buttonVariants = cva(
+  "inline-flex items-center justify-center gap-2 rounded-xl font-medium whitespace-nowrap transition-all outline-none focus-visible:ring-2 focus-visible:ring-accent/60 disabled:cursor-not-allowed disabled:opacity-50 active:scale-[0.98] [&_svg]:size-4 [&_svg]:shrink-0",
+  {
+    variants: {
+      variant: {
+        primary:
+          "bg-linear-to-b from-accent to-accent-strong text-white shadow-lg shadow-accent-strong/30 ring-1 ring-white/25 ring-inset hover:brightness-110",
+        secondary: "glass text-fg hover:bg-glass-hover",
+        destructive:
+          "border border-danger-line bg-danger-soft text-danger backdrop-blur-md hover:bg-danger-soft hover:brightness-95 dark:hover:brightness-125",
+        ghost: "text-fg-muted hover:bg-glass-hover hover:text-fg",
+      },
+      size: {
+        default: "min-h-11 px-4 text-sm",
+        sm: "min-h-9 px-3 text-sm",
+      },
+    },
+    defaultVariants: { variant: "primary", size: "default" },
+  }
+);
 
 export function Button({
-  variant = "primary",
-  size = "default",
+  variant,
+  size,
   className,
+  asChild = false,
   ...props
-}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant; size?: Size }) {
-  return (
-    <button
-      className={cn(
-        "inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50",
-        VARIANT_CLASSES[variant],
-        SIZE_CLASSES[size],
-        className
-      )}
-      {...props}
-    />
-  );
+}: ButtonHTMLAttributes<HTMLButtonElement> &
+  VariantProps<typeof buttonVariants> & { asChild?: boolean }) {
+  const Comp = asChild ? Slot.Root : "button";
+  return <Comp className={cn(buttonVariants({ variant, size }), className)} {...props} />;
 }

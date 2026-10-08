@@ -21,6 +21,7 @@ export async function listAllBrands(): Promise<BrandRow[]> {
 export async function renameBrand(id: string, name: string): Promise<ActionResult> {
   const admin = await requireAdmin();
   if (!admin.ok) return admin;
+  if (!name.trim()) return { ok: false, error: "Brand name can't be empty." };
   const { error } = await admin.supabase.from("brands").update({ name: name.trim() }).eq("id", id);
   if (error) {
     if (error.code === "23505") return { ok: false, error: "Another brand already has that name — merge instead." };
@@ -61,6 +62,7 @@ export async function searchModelsAdmin(query: string): Promise<ModelRow[]> {
 export async function renameModel(id: string, name: string): Promise<ActionResult> {
   const admin = await requireAdmin();
   if (!admin.ok) return admin;
+  if (!name.trim()) return { ok: false, error: "Model name can't be empty." };
   const { error } = await admin.supabase.from("models").update({ name: name.trim() }).eq("id", id);
   if (error) {
     if (error.code === "23505")
@@ -95,6 +97,7 @@ export async function listVariantsForModel(modelId: string): Promise<VariantRow[
 export async function renameVariant(id: string, color: string): Promise<ActionResult> {
   const admin = await requireAdmin();
   if (!admin.ok) return admin;
+  if (!color.trim()) return { ok: false, error: "Color can't be empty." };
   const { error } = await admin.supabase
     .from("model_variants")
     .update({ color: color.trim() })

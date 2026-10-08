@@ -5,8 +5,9 @@
 // 2. The /dispatcher and /tester page *shells* — cached ONLY as full-page
 //    navigations, because their rendered HTML genuinely carries no per-user
 //    or business data (they render an empty client-side scan form; the only
-//    thing that varies by who loaded them is whether an admin nav bar shows,
-//    which isn't sensitive). This is what lets a dispatcher/tester reload —
+//    thing that varies by who loaded them is which nav entries show, which
+//    isn't sensitive — the signed-in person's name is deliberately NOT in the
+//    HTML; the app shell fetches it client-side). This is what lets a dispatcher/tester reload —
 //    not just keep an already-open tab — while offline and still reach the
 //    scan/pick controls that the app's own offline-queue system then handles.
 //
@@ -14,7 +15,7 @@
 // active count session and live tally data, which must not be cached and
 // replayed to whoever uses the device next. /admin, /api/*, and everything
 // else are never cached for the same reason.
-const CACHE_NAME = "pixel-inventory-v4";
+const CACHE_NAME = "pixel-inventory-v5";
 const PRECACHE_URLS = ["/offline"];
 const CACHEABLE_SHELL_PATHS = new Set(["/dispatcher", "/tester"]);
 

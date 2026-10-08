@@ -5,11 +5,7 @@ export default async function CheckerLayout({ children }: { children: React.Reac
   const profile = await getCurrentProfile();
 
   return (
-    <AppShell
-      title="Checker"
-      subtitle="Scan shelves and compare against the system"
-      isAdmin={profile?.role === "admin"}
-    >
+    <AppShell role={profile?.role ?? null}>
       <div className="mx-auto max-w-3xl">{children}</div>
     </AppShell>
   );

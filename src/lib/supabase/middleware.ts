@@ -76,7 +76,9 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (user && isLoginPage) {
+  // Only bounce a signed-in user away from /login when we know where to send
+  // them — with no profile row, / sends them straight back here (a loop).
+  if (user && isLoginPage && profile) {
     const url = request.nextUrl.clone();
     url.pathname = (profile && ROLE_HOME[profile.role]) || "/";
     return NextResponse.redirect(url);

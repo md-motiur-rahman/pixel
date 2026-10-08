@@ -12,14 +12,14 @@ export default async function AdminPage() {
 
   return (
     <Card className="overflow-hidden">
-      <div className="border-b border-neutral-200 px-4 py-4 sm:px-5">
-        <h2 className="text-sm font-semibold text-neutral-900">Invite staff</h2>
-        <p className="mt-0.5 text-sm text-neutral-500">
+      <div className="border-b border-line px-4 py-4 sm:px-5">
+        <h2 className="text-sm font-semibold text-fg">Invite staff</h2>
+        <p className="mt-0.5 text-sm text-fg-muted">
           They&rsquo;ll get an email to set their own password and sign in.
         </p>
       </div>
       <InviteForm />
-      <ul className="divide-y divide-neutral-100">
+      <ul className="divide-y divide-line-soft">
         {(users ?? []).map((u) => (
           <StaffRow
             key={u.id}
@@ -31,7 +31,7 @@ export default async function AdminPage() {
           />
         ))}
         {(!users || users.length === 0) && (
-          <li className="px-4 py-6 text-center text-sm text-neutral-500 sm:px-5">No staff accounts yet.</li>
+          <li className="px-4 py-6 text-center text-sm text-fg-muted sm:px-5">No staff accounts yet.</li>
         )}
       </ul>
     </Card>

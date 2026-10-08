@@ -4,17 +4,16 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { lookupUnit, pickUnit, undoPick, type UnitDetails } from "./actions";
 import { createOfflineQueue } from "@/lib/offline-queue";
 import { useQueueLength } from "@/hooks/use-queue-length";
-import { Button, Card, Field, Input, Message } from "@/components/ui";
+import { Badge, Button, Card, Field, Input, Message } from "@/components/ui";
 import { CameraScanButton } from "@/components/camera-scan-button";
-import { cn } from "@/lib/cn";
 
 const PICK_QUEUE_KEY = "dispatcher-pick-queue";
 const pickQueue = createOfflineQueue<{ unitId: string }>(PICK_QUEUE_KEY);
 
-const STATUS_BADGE: Record<UnitDetails["status"], string> = {
-  in_stock: "bg-emerald-50 text-emerald-700",
-  picked: "bg-amber-50 text-amber-700",
-  shipped: "bg-neutral-100 text-neutral-600",
+const STATUS_TONE: Record<UnitDetails["status"], "success" | "warning" | "neutral"> = {
+  in_stock: "success",
+  picked: "warning",
+  shipped: "neutral",
 };
 
 export function ScanPanel() {
@@ -203,14 +202,14 @@ export function ScanPanel() {
   return (
     <div className="space-y-4">
       {pendingCount > 0 && (
-        <Message variant="warning" className="rounded-lg bg-amber-50 px-3.5 py-2.5">
+        <Message variant="warning" className="rounded-lg bg-warn-soft px-3.5 py-2.5">
           {pendingCount} pick(s) queued, waiting to sync.
         </Message>
       )}
 
       <Card className="p-5 sm:p-6">
         <form onSubmit={handleScanSubmit}>
-          <Field label="Scan a camera QR">
+          <Field label="Scan a camera QR, or type its serial number">
             <Input
               ref={inputRef}
               type="text"
@@ -225,7 +224,7 @@ export function ScanPanel() {
         <div className="mt-3">
           <CameraScanButton onScan={(value) => void performLookup(value)} />
         </div>
-        {loading && <p className="mt-3 text-sm text-neutral-500">Looking up…</p>}
+        {loading && <p className="mt-3 text-sm text-fg-muted">Looking up…</p>}
         {error && <Message variant="error" className="mt-3">{error}</Message>}
       </Card>
 
@@ -233,35 +232,28 @@ export function ScanPanel() {
         <Card className="p-5 sm:p-6">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-base font-semibold text-neutral-900">
+              <p className="text-base font-semibold text-fg">
                 {unit.brand} {unit.model} — {unit.color}
               </p>
-              <p className="text-sm text-neutral-500">Grade {unit.grade}</p>
+              <p className="text-sm text-fg-muted">Grade {unit.grade}</p>
             </div>
-            <span
-              className={cn(
-                "shrink-0 rounded-full px-2.5 py-1 text-xs font-medium capitalize",
-                STATUS_BADGE[unit.status]
-              )}
-            >
-              {unit.status.replace("_", " ")}
-            </span>
+            <Badge tone={STATUS_TONE[unit.status]}>{unit.status.replace("_", " ")}</Badge>
           </div>
 
           <dl className="mt-4 space-y-1.5 text-sm">
             <div className="flex justify-between gap-3">
-              <dt className="text-neutral-500">Serial</dt>
-              <dd className="text-right text-neutral-900">{unit.serialNumber}</dd>
+              <dt className="text-fg-muted">Serial</dt>
+              <dd className="text-right text-fg">{unit.serialNumber}</dd>
             </div>
             {unit.note && (
               <div className="flex justify-between gap-3">
-                <dt className="text-neutral-500">Note</dt>
-                <dd className="text-right text-neutral-900">{unit.note}</dd>
+                <dt className="text-fg-muted">Note</dt>
+                <dd className="text-right text-fg">{unit.note}</dd>
               </div>
             )}
             <div className="flex justify-between gap-3">
-              <dt className="text-neutral-500">Tested by</dt>
-              <dd className="text-right text-neutral-900">{unit.testerName}</dd>
+              <dt className="text-fg-muted">Tested by</dt>
+              <dd className="text-right text-fg">{unit.testerName}</dd>
             </div>
           </dl>
 
@@ -273,7 +265,7 @@ export function ScanPanel() {
             )}
             {unit.status !== "in_stock" && (
               <div className="space-y-2.5">
-                <p className="rounded-lg bg-amber-50 px-3.5 py-2.5 text-sm text-amber-800">
+                <p className="rounded-lg bg-warn-soft px-3.5 py-2.5 text-sm text-warn">
                   Already {unit.status}
                   {unit.pickedByName ? ` by ${unit.pickedByName}` : ""}
                   {unit.pickedAt ? ` on ${new Date(unit.pickedAt).toLocaleString()}` : ""}.

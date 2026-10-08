@@ -5,11 +5,7 @@ export default async function TesterLayout({ children }: { children: React.React
   const profile = await getCurrentProfile();
 
   return (
-    <AppShell
-      title="Tester"
-      subtitle="Log a tested camera and print its label"
-      isAdmin={profile?.role === "admin"}
-    >
+    <AppShell role={profile?.role ?? null}>
       <div className="mx-auto max-w-xl print:max-w-none">{children}</div>
     </AppShell>
   );

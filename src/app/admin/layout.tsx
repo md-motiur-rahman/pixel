@@ -1,10 +1,11 @@
 import { AppShell } from "@/components/app-shell";
+import { getCurrentProfile } from "@/lib/get-current-profile";
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  // Only an admin can ever reach this layout (middleware enforces it), so the
-  // cross-section switcher inside AppShell is always relevant here.
+export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+  const profile = await getCurrentProfile();
+
   return (
-    <AppShell title="Admin" subtitle="Users & catalog management" isAdmin>
+    <AppShell role={profile?.role ?? null}>
       <div className="mx-auto max-w-3xl">{children}</div>
     </AppShell>
   );
