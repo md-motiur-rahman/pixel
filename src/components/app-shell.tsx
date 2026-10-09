@@ -64,16 +64,14 @@ const WORKSPACES: Record<Exclude<Role, "admin">, NavEntry> = {
   },
 };
 
-// The workspaces an admin sees in the "Workspaces" group. Data entry sits with the
-// admin pages instead (see ADMIN_PAGES), which keeps the phone tab bar at five tabs.
-const ADMIN_WORKSPACE_KEYS = ["tester", "dispatcher", "checker"] as const;
+// The workspaces an admin sees in the "Workspaces" group — every role's own screen.
+const ADMIN_WORKSPACE_KEYS = ["tester", "dispatcher", "checker", "data_entry"] as const;
 
 const ADMIN_PAGES: NavEntry[] = [
   { href: "/admin/inventory", label: "Inventory", description: "See what is in stock right now", icon: Warehouse },
   { href: "/admin", exact: true, label: "Staff", description: "Invite people and manage roles", icon: Users },
   { href: "/admin/catalog", label: "Catalog", description: "Fix brands, models and colours", icon: BookOpen },
   { href: "/admin/export", label: "Export", description: "Download reports as CSV files", icon: FileDown },
-  { href: "/data-entry", label: "Data entry", description: "Add brands, models and ASINs", icon: ListPlus },
 ];
 
 // Where the "Admin" tab lands.
