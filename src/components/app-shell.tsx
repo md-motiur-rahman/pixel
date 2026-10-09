@@ -16,6 +16,7 @@ import {
   CircleUser,
   ShieldCheck,
   PackageCheck,
+  ListPlus,
   Users,
   Warehouse,
   type LucideIcon,
@@ -55,13 +56,24 @@ const WORKSPACES: Record<Exclude<Role, "admin">, NavEntry> = {
     description: "Scan the shelf and compare with the system",
     icon: ClipboardCheck,
   },
+  data_entry: {
+    href: "/data-entry",
+    label: "Data entry",
+    description: "Add brands, models and ASINs for testers to pick",
+    icon: ListPlus,
+  },
 };
+
+// The workspaces an admin sees in the "Workspaces" group. Data entry sits with the
+// admin pages instead (see ADMIN_PAGES), which keeps the phone tab bar at five tabs.
+const ADMIN_WORKSPACE_KEYS = ["tester", "dispatcher", "checker"] as const;
 
 const ADMIN_PAGES: NavEntry[] = [
   { href: "/admin/inventory", label: "Inventory", description: "See what is in stock right now", icon: Warehouse },
   { href: "/admin", exact: true, label: "Staff", description: "Invite people and manage roles", icon: Users },
   { href: "/admin/catalog", label: "Catalog", description: "Fix brands, models and colours", icon: BookOpen },
   { href: "/admin/export", label: "Export", description: "Download reports as CSV files", icon: FileDown },
+  { href: "/data-entry", label: "Data entry", description: "Add brands, models and ASINs", icon: ListPlus },
 ];
 
 // Where the "Admin" tab lands.
@@ -72,6 +84,7 @@ const ROLE_LABEL: Record<Role, string> = {
   tester: "Tester",
   dispatcher: "Dispatcher",
   checker: "Checker",
+  data_entry: "Data entry",
 };
 
 function isActive(entry: NavEntry, pathname: string) {
@@ -79,7 +92,8 @@ function isActive(entry: NavEntry, pathname: string) {
 }
 
 function buildNav(role: Role | null) {
-  const workspaces = role === "admin" ? Object.values(WORKSPACES) : role ? [WORKSPACES[role]] : [];
+  const workspaces =
+    role === "admin" ? ADMIN_WORKSPACE_KEYS.map((key) => WORKSPACES[key]) : role ? [WORKSPACES[role]] : [];
   const groups: { heading: string; entries: NavEntry[] }[] = [];
   if (workspaces.length) {
     groups.push({ heading: role === "admin" ? "Workspaces" : "Your workspace", entries: workspaces });
@@ -246,10 +260,11 @@ const MOBILE_LABEL: Record<Exclude<Role, "admin">, string> = {
   tester: "Test",
   dispatcher: "Dispatch",
   checker: "Count",
+  data_entry: "Entry",
 };
 
 function buildTabs(role: Role | null): MobileTab[] {
-  const workspaceKeys = (role === "admin" ? Object.keys(WORKSPACES) : role ? [role] : []) as Exclude<Role, "admin">[];
+  const workspaceKeys: Exclude<Role, "admin">[] = role === "admin" ? [...ADMIN_WORKSPACE_KEYS] : role ? [role] : [];
   const tabs: MobileTab[] = workspaceKeys.map((key) => ({
     href: WORKSPACES[key].href,
     label: MOBILE_LABEL[key],

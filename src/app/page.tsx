@@ -8,6 +8,7 @@ const ROLE_HOME: Record<Role, string> = {
   tester: "/tester",
   dispatcher: "/dispatcher",
   checker: "/checker",
+  data_entry: "/data-entry",
 };
 
 export default async function Home() {

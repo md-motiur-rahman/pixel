@@ -6,7 +6,14 @@ import type { Role } from "@/types/database";
 import { Button, Select } from "@/components/ui";
 import { cn } from "@/lib/cn";
 
-const ROLES: Role[] = ["tester", "dispatcher", "checker", "admin"];
+const ROLES: Role[] = ["tester", "dispatcher", "checker", "data_entry", "admin"];
+const ROLE_LABEL: Record<Role, string> = {
+  tester: "tester",
+  dispatcher: "dispatcher",
+  checker: "checker",
+  data_entry: "data entry",
+  admin: "admin",
+};
 
 export function StaffRow({
   userId,
@@ -59,7 +66,7 @@ export function StaffRow({
         >
           {ROLES.map((r) => (
             <option key={r} value={r}>
-              {r}
+              {ROLE_LABEL[r]}
             </option>
           ))}
         </Select>

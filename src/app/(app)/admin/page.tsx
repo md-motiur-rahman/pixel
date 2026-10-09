@@ -11,7 +11,7 @@ export default async function AdminPage() {
     .order("created_at", { ascending: false });
 
   return (
-    <Card className="overflow-hidden">
+    <Card className="mx-auto w-full max-w-3xl overflow-hidden">
       <div className="border-b border-line px-4 py-4 sm:px-5">
         <h2 className="text-sm font-semibold text-fg">Invite staff</h2>
         <p className="mt-0.5 text-sm text-fg-muted">

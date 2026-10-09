@@ -6,6 +6,7 @@ import { Printer, Search } from "lucide-react";
 import { findUnitForEdit, type EditableUnit } from "@/app/(app)/tester/edit-actions";
 import { SerialInput } from "@/components/serial-input";
 import { CameraScanButton } from "@/components/camera-scan-button";
+import { ColorPill } from "@/components/color-pill";
 import { Badge, Button, Card, Message } from "@/components/ui";
 
 // Find one exact camera by its (unique) serial number or QR, then reprint its label.
@@ -81,7 +82,8 @@ export function SerialLookup() {
         <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-line-soft bg-glass-soft p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-fg">
-              {unit.brand} {unit.model} — {unit.color}
+              {unit.brand} {unit.model}{" "}
+              <ColorPill color={unit.color} className="ml-1 align-middle" />
             </p>
             <p className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-fg-muted">
               <Badge tone="neutral" className="normal-case">

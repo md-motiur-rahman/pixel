@@ -1,7 +1,7 @@
 // Hand-written to match supabase/schema.sql. Once the project is linked,
 // replace with: npx supabase gen types typescript --linked > src/types/database.ts
 
-export type Role = "admin" | "tester" | "dispatcher" | "checker";
+export type Role = "admin" | "tester" | "dispatcher" | "checker" | "data_entry";
 export type UnitStatus = "in_stock" | "picked" | "shipped";
 
 type Table<Row, Insert, Update = Partial<Insert>> = {
@@ -94,6 +94,16 @@ export interface Database {
         { checker_id: string; note?: string | null },
         { finished_at?: string | null; note?: string | null }
       >;
+      model_asins: Table<
+        { id: string; model_id: string; asin: string; created_by: string | null; created_at: string },
+        { model_id: string; asin: string; created_by?: string | null },
+        Record<string, never>
+      >;
+      variant_asins: Table<
+        { id: string; variant_id: string; asin: string; position: number; created_at: string },
+        Record<string, never>,
+        Record<string, never>
+      >;
       stock_adjustments: Table<
         {
           id: string;
@@ -122,17 +132,15 @@ export interface Database {
       merge_brands: { Args: { source_id: string; target_id: string }; Returns: undefined };
       merge_models: { Args: { source_id: string; target_id: string }; Returns: undefined };
       merge_variants: { Args: { source_id: string; target_id: string }; Returns: undefined };
-      adjust_sku_line_quantity: {
-        Args: {
-          p_sku_line_id: string;
-          p_new_quantity: number;
-          p_expected_quantity: number;
-          p_source: "inventory" | "stock_count";
-          p_stock_count_id?: string | null;
-          p_note?: string | null;
-        };
-        Returns: number;
+      attach_model_asin_to_variant: {
+        Args: { p_variant_id: string; p_asin: string };
+        Returns: undefined;
       };
+      set_variant_asins: {
+        Args: { p_variant_id: string; p_asins: string[] };
+        Returns: undefined;
+      };
+      empty_inventory: { Args: { p_admin_id: string }; Returns: number };
       resolve_stock_count_line: {
         Args: { p_stock_count_id: string; p_sku_line_id: string; p_expected_quantity: number };
         Returns: number;

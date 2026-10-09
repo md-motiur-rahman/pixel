@@ -1,10 +1,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Combobox, type ComboboxOption } from "@/components/combobox";
 import { SerialInput } from "@/components/serial-input";
-import { searchBrands, searchModels } from "./search-actions";
+import { ColorSelect } from "@/components/color-select";
+import { listModelAsins, searchBrands, searchModels } from "./search-actions";
 import { createTestedUnit } from "./actions";
 import { Button, Field, Input, Message, Select } from "@/components/ui";
 
@@ -22,6 +23,27 @@ export function TesterForm({ grades }: { grades: Grade[] }) {
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // ASINs data entry added for the chosen model; the tester picks one.
+  const [asinOptions, setAsinOptions] = useState<string[]>([]);
+  const [asin, setAsin] = useState("");
+  const asinSeqRef = useRef(0);
+
+  async function loadAsins(modelId: string | null) {
+    const seq = ++asinSeqRef.current;
+    setAsin("");
+    if (!modelId) {
+      setAsinOptions([]);
+      return;
+    }
+    try {
+      const list = await listModelAsins(modelId);
+      if (seq !== asinSeqRef.current) return; // a newer model was picked meanwhile
+      setAsinOptions(list);
+      if (list.length === 1) setAsin(list[0]);
+    } catch {
+      if (seq === asinSeqRef.current) setAsinOptions([]);
+    }
+  }
 
   const effectiveBrandName = brand?.label ?? brandName;
   const effectiveModelName = model?.label ?? modelName;
@@ -41,6 +63,7 @@ export function TesterForm({ grades }: { grades: Grade[] }) {
         gradeId,
         serialNumber,
         note,
+        asin: asin || undefined,
       });
 
       if (!result.ok) {
@@ -69,12 +92,14 @@ export function TesterForm({ grades }: { grades: Grade[] }) {
           setBrand(opt);
           setModel(null);
           setModelName("");
+          void loadAsins(null);
         }}
         onCreateNew={(name) => {
           setBrand(null);
           setBrandName(name);
           setModel(null);
           setModelName("");
+          void loadAsins(null);
         }}
         search={searchBrands}
       />
@@ -85,16 +110,33 @@ export function TesterForm({ grades }: { grades: Grade[] }) {
         placeholder="e.g. PowerShot SX220IS"
         disabled={!effectiveBrandName}
         value={model}
-        onSelect={setModel}
+        onSelect={(opt) => {
+          setModel(opt);
+          void loadAsins(opt.id);
+        }}
         onCreateNew={(name) => {
           setModel(null);
           setModelName(name);
+          void loadAsins(null);
         }}
         search={(q) => (brand?.id ? searchModels(brand.id, q) : Promise.resolve([]))}
       />
 
+      {asinOptions.length > 0 && (
+        <Field label="ASIN" hint="Pick the ASIN that matches this camera's model and color.">
+          <Select required value={asin} onChange={(e) => setAsin(e.target.value)} className="font-mono">
+            <option value="">Select an ASIN…</option>
+            {asinOptions.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      )}
+
       <Field label="Color">
-        <Input type="text" required placeholder="e.g. Purple" value={color} onChange={(e) => setColor(e.target.value)} />
+        <ColorSelect value={color} onValueChange={setColor} />
       </Field>
 
       <Field label="Grade">
@@ -124,7 +166,14 @@ export function TesterForm({ grades }: { grades: Grade[] }) {
 
       <Button
         type="submit"
-        disabled={submitting || !effectiveBrandName || !effectiveModelName || !color || !serialNumber}
+        disabled={
+          submitting ||
+          !effectiveBrandName ||
+          !effectiveModelName ||
+          !color ||
+          !serialNumber ||
+          (asinOptions.length > 0 && !asin)
+        }
         className="w-full"
       >
         {submitting ? "Saving…" : "Save & print label"}

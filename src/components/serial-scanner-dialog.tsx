@@ -46,9 +46,8 @@ function SerialScannerBody({ onResult, onClose }: { onResult: (value: string) =>
   const [review, setReview] = useState<Review | null>(null);
   const [value, setValue] = useState("");
 
-  const { state, torch } = useCameraScanner(videoRef, {
+  const { state, controls, captureRegion } = useCameraScanner(videoRef, frameRef, {
     formats: ["CODE_128", "CODE_39", "CODE_93", "EAN_13", "EAN_8", "UPC_A", "ITF", "CODABAR", "DATA_MATRIX", "QR_CODE"],
-    highResolution: true,
     onDecode: (text) => {
       // While someone is reviewing an OCR reading, ignore barcodes in view.
       if (reviewActiveRef.current) return false;
@@ -64,35 +63,18 @@ function SerialScannerBody({ onResult, onClose }: { onResult: (value: string) =>
   }, []);
 
   async function readText() {
-    const video = videoRef.current;
-    const frame = frameRef.current;
-    if (!video || !frame || !video.videoWidth) return;
-
-    // Crop to the on-screen guide box. The video is object-cover, so map the
-    // box from screen coordinates back to the real frame.
-    const vr = video.getBoundingClientRect();
-    const fr = frame.getBoundingClientRect();
-    const scale = Math.max(vr.width / video.videoWidth, vr.height / video.videoHeight);
-    const offX = (video.videoWidth * scale - vr.width) / 2;
-    const offY = (video.videoHeight * scale - vr.height) / 2;
-    const sx = Math.max(0, (fr.left - vr.left + offX) / scale);
-    const sy = Math.max(0, (fr.top - vr.top + offY) / scale);
-    const sw = Math.min(video.videoWidth - sx, fr.width / scale);
-    const sh = Math.min(video.videoHeight - sy, fr.height / scale);
-
-    const upscale = sw < 1400 ? 1400 / sw : 1;
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.round(sw * upscale);
-    canvas.height = Math.round(sh * upscale);
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    // Grayscale + extra contrast makes engraved/printed text far easier to read.
-    ctx.filter = "grayscale(1) contrast(1.5)";
-    ctx.drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
-
+    if (reviewActiveRef.current) return;
     reviewActiveRef.current = true;
-    setReview({ image: canvas.toDataURL("image/jpeg", 0.85), candidates: [], reading: true, error: null });
+    setReview({ image: "", candidates: [], reading: true, error: null });
     setValue("");
+
+    // A sharp still of the framed area (full camera resolution where the phone allows it).
+    const canvas = await captureRegion();
+    if (!canvas) {
+      setReview((r) => (r ? { ...r, reading: false, error: "Couldn't capture the picture — try again." } : r));
+      return;
+    }
+    setReview((r) => (r ? { ...r, image: canvas.toDataURL("image/jpeg", 0.85) } : r));
 
     try {
       if (!workerRef.current) {
@@ -129,7 +111,7 @@ function SerialScannerBody({ onResult, onClose }: { onResult: (value: string) =>
 
   return (
     <>
-      <ScannerViewport ref={frameRef} videoRef={videoRef} frame="wide" status={state.status} torch={torch} />
+      <ScannerViewport ref={frameRef} videoRef={videoRef} frame="wide" status={state.status} controls={controls} />
 
       <ScannerFooter>
         {state.status === "error" && <Message variant="error">{state.error}</Message>}
@@ -140,7 +122,9 @@ function SerialScannerBody({ onResult, onClose }: { onResult: (value: string) =>
               <p className="text-center text-sm text-fg-muted">
                 Barcode? Hold it inside the box — it reads automatically.
                 <br />
-                Printed text only? Line it up in the box and tap Read text.
+                Printed text only? Line it up and tap Read text.
+                <br />
+                Too small or far? Pinch or use the zoom bar; tap the picture to focus.
               </p>
             )}
             <div className="flex gap-2">
@@ -157,8 +141,10 @@ function SerialScannerBody({ onResult, onClose }: { onResult: (value: string) =>
 
         {review && (
           <div className="space-y-3">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={review.image} alt="Captured area" className="max-h-20 w-full rounded-lg bg-black object-contain" />
+            {review.image && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={review.image} alt="Captured area" className="max-h-20 w-full rounded-lg bg-black object-contain" />
+            )}
 
             {review.reading ? (
               <p className="text-center text-sm text-fg-muted">Reading text…</p>

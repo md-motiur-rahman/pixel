@@ -6,7 +6,7 @@ import { VariantsSection } from "./variants-section";
 export default async function CatalogPage() {
   const brands = await listAllBrands();
   return (
-    <div className="space-y-4">
+    <div className="mx-auto w-full max-w-3xl space-y-4">
       <BrandsSection initialBrands={brands} />
       <ModelsSection />
       <VariantsSection />

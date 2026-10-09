@@ -28,6 +28,15 @@ export async function searchModels(brandId: string, query: string): Promise<Comb
   return (data ?? []).map((m) => ({ id: m.id, label: m.name }));
 }
 
+// The ASINs data entry staff have added for a model — the tester picks one when
+// logging a camera. Empty (not an error) if there are none or the table isn't set up yet.
+export async function listModelAsins(modelId: string): Promise<string[]> {
+  if (!modelId) return [];
+  const supabase = await createClient();
+  const { data } = await supabase.from("model_asins").select("asin").eq("model_id", modelId).order("created_at");
+  return (data ?? []).map((row) => row.asin);
+}
+
 export async function listGrades() {
   const supabase = await createClient();
   const { data } = await supabase.from("grades").select("id, code, label").order("sort_order");

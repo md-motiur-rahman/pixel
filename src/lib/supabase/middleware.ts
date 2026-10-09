@@ -7,6 +7,7 @@ const ROLE_HOME: Record<string, string> = {
   tester: "/tester",
   dispatcher: "/dispatcher",
   checker: "/checker",
+  data_entry: "/data-entry",
 };
 
 export async function updateSession(request: NextRequest) {
@@ -83,9 +84,11 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Section-level role gating: /admin, /tester, /dispatcher, /checker
+  // Section-level role gating: each section belongs to one role (admins can open all of them).
   if (user && profile) {
-    const section = Object.keys(ROLE_HOME).find((r) => path.startsWith(`/${r}`));
+    const section = Object.entries(ROLE_HOME).find(
+      ([, prefix]) => path === prefix || path.startsWith(`${prefix}/`)
+    )?.[0];
     if (section && profile.role !== section && profile.role !== "admin") {
       const url = request.nextUrl.clone();
       url.pathname = ROLE_HOME[profile.role] || "/login";

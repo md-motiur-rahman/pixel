@@ -10,7 +10,9 @@ export async function GET() {
   const result = await fetchAllPages(async (from, to) =>
     admin.supabase
       .from("sku_lines")
-      .select("code, quantity, grades ( code ), model_variants ( color, models ( name, brands ( name ) ) )")
+      .select(
+        "code, quantity, grades ( code ), model_variants ( color, models ( name, brands ( name ) ), variant_asins ( asin, position ) )"
+      )
       .order("code")
       .range(from, to)
   );
@@ -20,12 +22,27 @@ export async function GET() {
     const variant = sl.model_variants as unknown as {
       color: string;
       models: { name: string; brands: { name: string } };
+      variant_asins: { asin: string; position: number }[] | null;
     };
     const grade = sl.grades as unknown as { code: string };
-    return [variant.models.brands.name, variant.models.name, variant.color, grade.code, sl.quantity, sl.code];
+    const asins = (variant.variant_asins ?? [])
+      .slice()
+      .sort((a, b) => a.position - b.position)
+      .map((a) => a.asin);
+    return [
+      variant.models.brands.name,
+      variant.models.name,
+      variant.color,
+      grade.code,
+      sl.quantity,
+      sl.code,
+      asins[0] ?? "",
+      asins[1] ?? "",
+      asins[2] ?? "",
+    ];
   });
 
-  const csv = toCsv(["Brand", "Model", "Color", "Grade", "Quantity", "SKU code"], rows);
+  const csv = toCsv(["Brand", "Model", "Color", "Grade", "Quantity", "SKU code", "ASIN", "ASIN 2", "ASIN 3"], rows);
 
   return new NextResponse(csv, {
     headers: {

@@ -6,6 +6,7 @@ import { createOfflineQueue } from "@/lib/offline-queue";
 import { useQueueLength } from "@/hooks/use-queue-length";
 import { Badge, Button, Card, Field, Input, Message } from "@/components/ui";
 import { CameraScanButton } from "@/components/camera-scan-button";
+import { ColorPill } from "@/components/color-pill";
 
 const PICK_QUEUE_KEY = "dispatcher-pick-queue";
 const pickQueue = createOfflineQueue<{ unitId: string }>(PICK_QUEUE_KEY);
@@ -233,7 +234,8 @@ export function ScanPanel() {
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-base font-semibold text-fg">
-                {unit.brand} {unit.model} — {unit.color}
+                {unit.brand} {unit.model}{" "}
+                <ColorPill color={unit.color} className="ml-1 align-middle" />
               </p>
               <p className="text-sm text-fg-muted">Grade {unit.grade}</p>
             </div>

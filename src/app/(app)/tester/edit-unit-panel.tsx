@@ -8,6 +8,7 @@ import { searchBrands, searchModels } from "./search-actions";
 import { Combobox, type ComboboxOption } from "@/components/combobox";
 import { Button, Card, Field, Input, Message, Select } from "@/components/ui";
 import { SerialInput } from "@/components/serial-input";
+import { ColorSelect } from "@/components/color-select";
 import { CameraScanButton } from "@/components/camera-scan-button";
 
 type Grade = { id: string; code: string; label: string };
@@ -218,7 +219,7 @@ export function EditUnitPanel({ grades }: { grades: Grade[] }) {
           />
 
           <Field label="Color">
-            <Input type="text" required value={color} onChange={(e) => setColor(e.target.value)} />
+            <ColorSelect value={color} onValueChange={setColor} />
           </Field>
 
           <Field label="Grade">

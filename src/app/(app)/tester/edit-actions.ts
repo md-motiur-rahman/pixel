@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { escapeLikePattern, looksLikeUuid } from "@/lib/escape-like";
 import { findOrCreate } from "@/lib/find-or-create";
+import { canonicalColor } from "@/lib/colors";
 import { singleSerialMatch } from "@/lib/serial";
 import { getAuthUser } from "@/lib/supabase/auth-user";
 
@@ -103,7 +104,7 @@ export async function updateUnitDetails(
 
   const brandName = input.brandName.trim();
   const modelName = input.modelName.trim();
-  const color = input.color.trim();
+  const color = canonicalColor(input.color);
   const serialNumber = input.serialNumber.trim();
 
   if (!brandName || !modelName || !color || !input.gradeId || !serialNumber) {

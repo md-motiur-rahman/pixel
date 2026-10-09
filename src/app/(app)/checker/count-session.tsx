@@ -8,6 +8,7 @@ import { Button, Card, Field, Input, Message } from "@/components/ui";
 import { ArrowRight, Minus, Plus } from "lucide-react";
 import { CameraScanButton } from "@/components/camera-scan-button";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { ColorPill } from "@/components/color-pill";
 import { cn } from "@/lib/cn";
 
 type QueuedScan = { stockCountId: string; unitId: string };
@@ -204,7 +205,7 @@ export function CountSession({
 
   if (!stockCountId) {
     return (
-      <Card className="p-6 text-center sm:p-8">
+      <Card className="mx-auto w-full max-w-3xl p-6 text-center sm:p-8">
         <p className="text-sm text-fg-muted">Start a new session, then scan every camera on the shelf.</p>
         <Button onClick={handleStart} disabled={starting} className="mt-4">
           {starting ? "Starting…" : "Start new count"}
@@ -216,7 +217,7 @@ export function CountSession({
 
   return (
     <div className="space-y-4">
-      <Card className="p-5 sm:p-6">
+      <Card className="mx-auto w-full max-w-3xl p-5 sm:p-6">
         <form onSubmit={handleScanSubmit} className="flex flex-col gap-3 sm:flex-row sm:items-end">
           <div className="flex-1">
             <Field label="Scan a camera QR">
@@ -270,7 +271,9 @@ export function CountSession({
                 <tr key={row.skuLineId} className={cn("transition-colors hover:bg-glass-soft", row.diff !== 0 && "bg-danger-soft")}>
                   <td className="whitespace-nowrap px-3.5 py-2.5">{row.brand}</td>
                   <td className="whitespace-nowrap px-3.5 py-2.5">{row.model}</td>
-                  <td className="whitespace-nowrap px-3.5 py-2.5">{row.color}</td>
+                  <td className="whitespace-nowrap px-3.5 py-2.5">
+                    <ColorPill color={row.color} />
+                  </td>
                   <td className="whitespace-nowrap px-3.5 py-2.5">{row.grade}</td>
                   <td className="whitespace-nowrap px-3.5 py-2.5 text-right">{row.systemQty}</td>
                   <td className="whitespace-nowrap px-3.5 py-2.5 text-right">{row.scannedQty}</td>

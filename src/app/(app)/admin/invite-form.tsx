@@ -5,7 +5,14 @@ import { inviteStaff } from "./actions";
 import type { Role } from "@/types/database";
 import { Button, Field, Input, Message, Select } from "@/components/ui";
 
-const ROLES: Role[] = ["tester", "dispatcher", "checker", "admin"];
+const ROLES: Role[] = ["tester", "dispatcher", "checker", "data_entry", "admin"];
+const ROLE_LABEL: Record<Role, string> = {
+  tester: "tester",
+  dispatcher: "dispatcher",
+  checker: "checker",
+  data_entry: "data entry",
+  admin: "admin",
+};
 
 export function InviteForm() {
   const [fullName, setFullName] = useState("");
@@ -47,7 +54,7 @@ export function InviteForm() {
           <Select value={role} onChange={(e) => setRole(e.target.value as Role)} className="sm:w-32">
             {ROLES.map((r) => (
               <option key={r} value={r}>
-                {r}
+                {ROLE_LABEL[r]}
               </option>
             ))}
           </Select>

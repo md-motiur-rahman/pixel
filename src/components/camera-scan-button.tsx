@@ -6,6 +6,7 @@ import { ScanLine } from "lucide-react";
 import { Button, Message } from "@/components/ui";
 import { ScannerDialog, ScannerFooter, ScannerViewport } from "@/components/scanner/scanner-dialog";
 import { cameraErrorMessage, INSECURE_CAMERA_MESSAGE } from "@/components/scanner/use-camera-scanner";
+import { useTrackControls } from "@/components/scanner/use-track-controls";
 
 // QR labels are scanned with qr-scanner — it uses the phone's built-in barcode
 // detector where available (fast, good with small labels) and its own worker
@@ -17,8 +18,7 @@ function QrScannerBody({ onScan, onClose }: { onScan: (value: string) => void; o
   const onCloseRef = useRef(onClose);
   const [status, setStatus] = useState<"starting" | "ready" | "error">("starting");
   const [error, setError] = useState<string | null>(null);
-  const [torchSupported, setTorchSupported] = useState(false);
-  const [torchOn, setTorchOn] = useState(false);
+  const { controls } = useTrackControls(videoRef, status === "ready", { allowDigital: false });
 
   useEffect(() => {
     onScanRef.current = onScan;
@@ -66,8 +66,6 @@ function QrScannerBody({ onScan, onClose }: { onScan: (value: string) => void; o
         await instance.start();
         if (cancelled) return;
         setStatus("ready");
-        const hasFlash = await instance.hasFlash();
-        if (!cancelled) setTorchSupported(hasFlash);
       } catch (err) {
         if (cancelled) return;
         setStatus("error");
@@ -83,25 +81,9 @@ function QrScannerBody({ onScan, onClose }: { onScan: (value: string) => void; o
     };
   }, []);
 
-  async function toggleTorch() {
-    const scanner = scannerRef.current;
-    if (!scanner) return;
-    try {
-      await scanner.toggleFlash();
-      setTorchOn(scanner.isFlashOn());
-    } catch {
-      setTorchSupported(false);
-    }
-  }
-
   return (
     <>
-      <ScannerViewport
-        videoRef={videoRef}
-        frame="square"
-        status={status}
-        torch={{ supported: torchSupported, on: torchOn, toggle: () => void toggleTorch() }}
-      />
+      <ScannerViewport videoRef={videoRef} frame="square" status={status} controls={controls} />
       <ScannerFooter>
         {status === "error" && error ? (
           <Message variant="error">{error}</Message>

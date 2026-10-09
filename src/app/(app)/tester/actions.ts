@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { escapeLikePattern } from "@/lib/escape-like";
 import { findOrCreate } from "@/lib/find-or-create";
+import { canonicalColor } from "@/lib/colors";
 import { getAuthUser } from "@/lib/supabase/auth-user";
 
 export type CreateTestedUnitInput = {
@@ -14,6 +15,8 @@ export type CreateTestedUnitInput = {
   gradeId: string;
   serialNumber: string;
   note: string;
+  /** One of the model's ASINs (from data entry), picked from the dropdown. */
+  asin?: string;
 };
 
 export type CreateTestedUnitResult =
@@ -30,7 +33,7 @@ export async function createTestedUnit(
 
   const brandName = input.brandName.trim();
   const modelName = input.modelName.trim();
-  const color = input.color.trim();
+  const color = canonicalColor(input.color);
   const serialNumber = input.serialNumber.trim();
 
   if (!brandName || !modelName || !color || !input.gradeId || !serialNumber) {
@@ -113,6 +116,17 @@ export async function createTestedUnit(
   );
   if (!skuLineResult.ok) return { ok: false, error: `Could not save SKU line: ${skuLineResult.error}` };
   const skuLineId = skuLineResult.id;
+
+  // 4b. The ASIN the tester picked becomes an ASIN of this model + colour. The
+  //     database function only accepts one that really belongs to the model.
+  const pickedAsin = input.asin?.trim();
+  if (pickedAsin) {
+    const { error: asinError } = await supabase.rpc("attach_model_asin_to_variant", {
+      p_variant_id: variantId,
+      p_asin: pickedAsin,
+    });
+    if (asinError) return { ok: false, error: `Could not save the ASIN: ${asinError.message}` };
+  }
 
   // 5. Unit — the physical camera being tested right now.
   const { data: unit, error: unitError } = await supabase

@@ -3,67 +3,136 @@
 import { requireAdmin } from "@/lib/admin-auth";
 import { revalidatePath } from "next/cache";
 import { fetchAllPages } from "@/lib/fetch-all-pages";
-import { adjustStock, type AdjustResult } from "@/lib/adjust-stock";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { validateAsins } from "@/lib/asin";
+import { verifyPassword } from "@/lib/verify-password";
 
+// One row per model + colour. Its three (or more) grades sit side by side as
+// quantities, so the same model and colour is never split over several lines.
 export type InventoryRow = {
-  skuLineId: string;
+  variantId: string;
   brand: string;
   model: string;
   color: string;
-  grade: string;
-  quantity: number;
+  /** Stock per grade code, e.g. { A: 4, B: 0, C: 2 }. */
+  quantities: Record<string, number>;
+  /** Main ASIN first, then up to 2 extra. Empty until an admin adds one. */
+  asins: string[];
 };
 
-export async function listInventory(): Promise<InventoryRow[]> {
+export type InventoryData = {
+  rows: InventoryRow[];
+  /** Grade codes in display order — one column each, even if nothing is in stock yet. */
+  grades: string[];
+};
+
+export async function listInventory(): Promise<InventoryData> {
   const admin = await requireAdmin();
-  if (!admin.ok) return [];
+  if (!admin.ok) return { rows: [], grades: [] };
 
-  const result = await fetchAllPages(async (from, to) =>
-    admin.supabase
-      .from("sku_lines")
-      .select("id, quantity, grades ( code ), model_variants ( color, models ( name, brands ( name ) ) )")
-      .order("id")
-      .range(from, to)
-  );
-  if (!result.ok) return [];
+  const [gradesResult, result] = await Promise.all([
+    admin.supabase.from("grades").select("code").order("sort_order").order("code"),
+    // !inner: only model + colour combinations that have at least one stock line.
+    fetchAllPages(async (from, to) =>
+      admin.supabase
+        .from("model_variants")
+        .select(
+          "id, color, models ( name, brands ( name ) ), sku_lines!inner ( quantity, grades ( code ) ), variant_asins ( asin, position )"
+        )
+        .order("id")
+        .range(from, to)
+    ),
+  ]);
+  if (!result.ok) return { rows: [], grades: [] };
 
-  const rows: InventoryRow[] = result.rows.map((sl) => {
-    const variant = sl.model_variants as unknown as {
-      color: string;
-      models: { name: string; brands: { name: string } };
-    };
-    const grade = sl.grades as unknown as { code: string };
+  const rows: InventoryRow[] = result.rows.map((variant) => {
+    const model = variant.models as unknown as { name: string; brands: { name: string } };
+    const lines = (variant.sku_lines ?? []) as unknown as { quantity: number; grades: { code: string } }[];
+    const asins = (variant.variant_asins ?? []) as unknown as { asin: string; position: number }[];
+
+    const quantities: Record<string, number> = {};
+    for (const line of lines) quantities[line.grades.code] = (quantities[line.grades.code] ?? 0) + line.quantity;
+
     return {
-      skuLineId: sl.id,
-      brand: variant.models.brands.name,
-      model: variant.models.name,
+      variantId: variant.id,
+      brand: model.brands.name,
+      model: model.name,
       color: variant.color,
-      grade: grade.code,
-      quantity: sl.quantity,
+      quantities,
+      asins: asins
+        .slice()
+        .sort((a, b) => a.position - b.position)
+        .map((a) => a.asin),
     };
   });
 
   rows.sort((a, b) =>
-    `${a.brand}${a.model}${a.color}${a.grade}`.localeCompare(`${b.brand}${b.model}${b.color}${b.grade}`)
+    `${a.brand}\u0000${a.model}\u0000${a.color}`.localeCompare(`${b.brand}\u0000${b.model}\u0000${b.color}`)
   );
 
-  return rows;
+  const grades = (gradesResult.data ?? []).map((g) => g.code);
+  // Safety net: a grade that has stock but somehow isn't in the grades list still gets a column.
+  for (const row of rows) for (const code of Object.keys(row.quantities)) if (!grades.includes(code)) grades.push(code);
+
+  return { rows, grades };
 }
 
-export async function adjustInventoryQuantity(
-  skuLineId: string,
-  newQuantity: number,
-  expectedQuantity: number,
-  note?: string
-): Promise<AdjustResult> {
+export async function saveAsins(
+  variantId: string,
+  asins: string[]
+): Promise<{ ok: true; asins: string[] } | { ok: false; error: string }> {
   const admin = await requireAdmin();
   if (!admin.ok) return { ok: false, error: admin.error };
 
-  const result = await adjustStock(
-    admin.supabase,
-    { skuLineId, newQuantity, expectedQuantity, note },
-    { source: "inventory" }
-  );
-  if (result.ok) revalidatePath("/admin/inventory");
-  return result;
+  const checked = validateAsins(asins);
+  if (!checked.ok) return { ok: false, error: checked.error };
+
+  const { error } = await admin.supabase.rpc("set_variant_asins", {
+    p_variant_id: variantId,
+    p_asins: checked.asins,
+  });
+  if (error) {
+    // PGRST202: PostgREST can't find the function — the migration hasn't been run.
+    if (error.code === "PGRST202") {
+      return {
+        ok: false,
+        error: "ASINs need a database update — run supabase/migration_6_asins_per_model_colour.sql in Supabase.",
+      };
+    }
+    return { ok: false, error: error.message };
+  }
+  revalidatePath("/admin/inventory");
+  return { ok: true, asins: checked.asins };
+}
+
+// Permanently deletes every in-stock camera record. Requires the admin's own
+// password, re-checked here on the server; the database function itself only
+// accepts the service role, so this check can't be skipped from the browser.
+export async function emptyInventory(
+  password: string
+): Promise<{ ok: true; deleted: number } | { ok: false; error: string }> {
+  const admin = await requireAdmin();
+  if (!admin.ok) return { ok: false, error: admin.error };
+
+  const { data: profile } = await admin.supabase.from("profiles").select("email").eq("id", admin.userId).single();
+  const valid = profile?.email ? await verifyPassword(profile.email, password) : false;
+  if (!valid) {
+    // A short pause on a wrong password makes guessing impractical.
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    return { ok: false, error: "That password isn't correct." };
+  }
+
+  const { data, error } = await createAdminClient().rpc("empty_inventory", { p_admin_id: admin.userId });
+  if (error) {
+    if (error.code === "PGRST202") {
+      return {
+        ok: false,
+        error: "Emptying isn't set up yet — run supabase/migration_5_asins_and_empty_inventory.sql in Supabase.",
+      };
+    }
+    return { ok: false, error: error.message };
+  }
+
+  revalidatePath("/admin/inventory");
+  return { ok: true, deleted: data };
 }
