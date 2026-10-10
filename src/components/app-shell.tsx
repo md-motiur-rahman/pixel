@@ -314,14 +314,15 @@ function MobileTabBar({ role, fullName, pathname }: { role: Role | null; fullNam
 
   const inner = (Icon: LucideIcon, label: string, active: boolean) => (
     <>
-      {/* Active = a white card that pops off the bar, not a coloured/
-          bordered box — matches the sidebar's NavItem treatment and
-          design.png / d2.webp's "flat glyph vs. raised white tile" nav. */}
+      {/* Active = a card that pops off the bar, not a coloured/bordered box —
+          matches the sidebar's NavItem treatment and design.png / d2.webp's
+          "flat glyph vs. raised white tile" nav. Pure white against the
+          bar's own light grey, not the same near-white gradient as the bar. */}
       {active && (
         <motion.span
           layoutId="tabbar-active"
           transition={{ type: "spring", stiffness: 420, damping: 34 }}
-          className="glass-strong absolute inset-0 rounded-2xl"
+          className="absolute inset-0 rounded-2xl bg-white shadow-(--shadow-raised)"
         />
       )}
       <Icon aria-hidden="true" className="relative size-[22px]" />
@@ -332,7 +333,9 @@ function MobileTabBar({ role, fullName, pathname }: { role: Role | null; fullNam
   return (
     <nav
       aria-label="Main"
-      className="glass fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-30 flex items-stretch gap-1 rounded-3xl p-1.5 print:hidden sm:hidden"
+      // A faint grey bar, not the same near-white panel as everything else —
+      // that's what makes the active tab's pure-white pill actually pop.
+      className="fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-30 flex items-stretch gap-1 rounded-3xl bg-[#e7e9f0] p-1.5 shadow-(--shadow-raised) print:hidden sm:hidden"
     >
       {tabs.map(({ href, label, icon, match }) => {
         const active = match(pathname);
