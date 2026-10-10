@@ -15,7 +15,12 @@ export function AuthCard({ children }: { children: React.ReactNode }) {
         className="w-full max-w-sm"
       >
         <div className="mb-6 flex flex-col items-center gap-3 text-center">
-          <span className="flex size-12 items-center justify-center rounded-2xl border border-white/25 bg-linear-to-br from-accent to-fuchsia-500 shadow-xl shadow-accent-strong/40">
+          <span
+            className="flex size-12 items-center justify-center rounded-full shadow-xl shadow-accent-strong/40"
+            style={{
+              background: "radial-gradient(circle at 32% 28%, var(--accent-strong), var(--accent) 55%, #2d2a8f 100%)",
+            }}
+          >
             <Aperture aria-hidden="true" className="size-6 text-white" />
           </span>
           <p className="text-sm font-semibold tracking-wide text-fg-muted">Pixel Direct</p>

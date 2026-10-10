@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { AlertDialog } from "radix-ui";
 import { Button, Message } from "@/components/ui";
 
-// Glass confirmation modal for changes that alter stock numbers. The parent owns
+// Confirmation modal for changes that alter stock numbers. The parent owns
 // `open` and closes it itself once onConfirm succeeds, so a failed request keeps
 // the dialog open with its error instead of silently dismissing it.
 export function ConfirmDialog({
@@ -33,7 +33,7 @@ export function ConfirmDialog({
   return (
     <AlertDialog.Root open={open} onOpenChange={(next) => !busy && onOpenChange(next)}>
       <AlertDialog.Portal>
-        <AlertDialog.Overlay className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=open]:animate-in data-[state=open]:fade-in" />
+        <AlertDialog.Overlay className="fixed inset-0 z-50 bg-black/40 data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=open]:animate-in data-[state=open]:fade-in" />
         <AlertDialog.Content className="glass-strong fixed top-1/2 left-1/2 z-50 w-[calc(100vw-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-3xl p-6 outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in data-[state=open]:zoom-in-95">
           <AlertDialog.Title className="text-base font-semibold text-fg">{title}</AlertDialog.Title>
           <AlertDialog.Description asChild>

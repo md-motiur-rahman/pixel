@@ -25,7 +25,6 @@ import { cn } from "@/lib/cn";
 import { createClient } from "@/lib/supabase/client";
 import type { Role } from "@/types/database";
 import { SignOutButton } from "@/components/sign-out-button";
-import { ThemeToggle } from "@/components/theme-toggle";
 
 type NavEntry = {
   href: string;
@@ -157,19 +156,21 @@ function NavItem({
         active ? "text-fg" : "text-fg-muted hover:bg-glass-hover hover:text-fg"
       )}
     >
+      {/* Active = a white card that visibly pops off the row, not a tinted/
+          bordered box — inactive rows carry no surface at all, matching
+          design reference d2.webp's nav rail (flat glyph vs. a raised white
+          tile for the selected one). */}
       {active && (
         <motion.span
           layoutId={layoutId}
           transition={{ type: "spring", stiffness: 420, damping: 34 }}
-          className="absolute inset-0 rounded-2xl border border-accent/30 bg-accent/12"
+          className="glass absolute inset-0 rounded-2xl"
         />
       )}
       <span
         className={cn(
-          "relative flex size-9 shrink-0 items-center justify-center rounded-xl border transition-colors",
-          active
-            ? "border-white/25 bg-linear-to-br from-accent to-accent-strong text-white shadow-md shadow-accent-strong/30"
-            : "border-line-soft bg-glass-soft text-fg-muted group-hover:text-fg"
+          "relative flex size-9 shrink-0 items-center justify-center rounded-xl transition-colors",
+          active ? "glass-strong text-fg" : "text-fg-muted group-hover:text-fg"
         )}
       >
         <Icon aria-hidden="true" className="size-[18px]" />
@@ -198,7 +199,12 @@ function SidebarContent({
   return (
     <>
       <div className="flex items-center gap-3 px-5 pt-5 pb-4">
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-linear-to-br from-accent to-fuchsia-500 shadow-lg shadow-accent-strong/30">
+        <span
+          className="flex size-10 shrink-0 items-center justify-center rounded-full shadow-lg shadow-accent-strong/30"
+          style={{
+            background: "radial-gradient(circle at 32% 28%, var(--accent-strong), var(--accent) 55%, #2d2a8f 100%)",
+          }}
+        >
           <Aperture aria-hidden="true" className="size-5 text-white" />
         </span>
         <div className="min-w-0">
@@ -232,7 +238,7 @@ function SidebarContent({
           <div className="flex items-center gap-3 rounded-2xl border border-line-soft bg-glass-soft px-3 py-2.5">
             <span
               aria-hidden="true"
-              className="flex size-9 shrink-0 items-center justify-center rounded-full bg-linear-to-br from-accent to-fuchsia-500 text-xs font-semibold text-white"
+              className="flex size-9 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-semibold text-white"
             >
               {fullName ? initials(fullName) : ROLE_LABEL[role][0]}
             </span>
@@ -242,7 +248,6 @@ function SidebarContent({
             </div>
           </div>
         )}
-        <ThemeToggle />
         <SignOutButton className="w-full" />
       </div>
     </>
@@ -282,7 +287,7 @@ function AccountPanel({ role, fullName }: { role: Role | null; fullName: string 
         <div className="flex items-center gap-3 rounded-2xl border border-line-soft bg-glass-soft px-3 py-3">
           <span
             aria-hidden="true"
-            className="flex size-11 shrink-0 items-center justify-center rounded-full bg-linear-to-br from-accent to-fuchsia-500 text-sm font-semibold text-white"
+            className="flex size-11 shrink-0 items-center justify-center rounded-full bg-accent text-sm font-semibold text-white"
           >
             {fullName ? initials(fullName) : ROLE_LABEL[role][0]}
           </span>
@@ -292,10 +297,6 @@ function AccountPanel({ role, fullName }: { role: Role | null; fullName: string 
           </div>
         </div>
       )}
-      <div>
-        <p className="px-1 pb-1.5 text-[11px] font-semibold tracking-wider text-fg-subtle uppercase">Appearance</p>
-        <ThemeToggle />
-      </div>
       <SignOutButton className="w-full" />
     </div>
   );
@@ -308,19 +309,22 @@ function MobileTabBar({ role, fullName, pathname }: { role: Role | null; fullNam
   const itemClass = (active: boolean) =>
     cn(
       "relative flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-2xl px-1 py-1.5 text-[11px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent/60",
-      active ? "text-fg" : "text-fg-subtle active:text-fg"
+      active ? "text-success" : "text-fg-subtle active:text-fg"
     );
 
   const inner = (Icon: LucideIcon, label: string, active: boolean) => (
     <>
+      {/* Active = a white card that pops off the bar, not a coloured/
+          bordered box — matches the sidebar's NavItem treatment and
+          design.png / d2.webp's "flat glyph vs. raised white tile" nav. */}
       {active && (
         <motion.span
           layoutId="tabbar-active"
           transition={{ type: "spring", stiffness: 420, damping: 34 }}
-          className="absolute inset-0 rounded-2xl border border-accent/30 bg-accent/12"
+          className="glass-strong absolute inset-0 rounded-2xl"
         />
       )}
-      <Icon aria-hidden="true" className={cn("relative size-[22px]", active && "text-accent")} />
+      <Icon aria-hidden="true" className="relative size-[22px]" />
       <span className="relative max-w-full truncate">{label}</span>
     </>
   );
@@ -346,7 +350,7 @@ function MobileTabBar({ role, fullName, pathname }: { role: Role | null; fullNam
           </button>
         </Dialog.Trigger>
         <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=open]:animate-in data-[state=open]:fade-in" />
+          <Dialog.Overlay className="fixed inset-0 z-40 bg-black/40 data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=open]:animate-in data-[state=open]:fade-in" />
           <Dialog.Content
             aria-describedby={undefined}
             className="glass-strong fixed inset-x-0 bottom-0 z-50 rounded-b-none rounded-t-3xl border-b-0 p-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] outline-none data-[state=closed]:animate-out data-[state=closed]:slide-out-to-bottom data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom"
@@ -377,7 +381,7 @@ function AdminMenu({ pathname }: { pathname: string }) {
           aria-label={`Admin section: ${current.label}. Change section`}
           className="group mx-auto flex max-w-full items-center gap-2 rounded-full border border-line bg-glass-soft py-1 pr-2.5 pl-1 text-sm font-semibold text-fg outline-none transition-colors hover:bg-glass-hover focus-visible:ring-2 focus-visible:ring-accent/60 data-[state=open]:bg-glass-hover"
         >
-          <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-linear-to-br from-accent to-accent-strong text-white">
+          <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-accent text-white">
             <CurrentIcon aria-hidden="true" className="size-4" />
           </span>
           <span className="truncate">
@@ -406,15 +410,17 @@ function AdminMenu({ pathname }: { pathname: string }) {
                   aria-current={active ? "page" : undefined}
                   className={cn(
                     "flex items-center gap-3 rounded-xl px-2.5 py-2.5 outline-none transition-colors data-[highlighted]:bg-glass-hover",
-                    active && "bg-accent/12"
+                    active && "bg-glass-soft"
                   )}
                 >
+                  {/* Already inside a white glass-strong popover, so the
+                      active state here is "pressed in" rather than another
+                      white-on-white card — the checkmark below is the other
+                      half of the signal. */}
                   <span
                     className={cn(
-                      "flex size-9 shrink-0 items-center justify-center rounded-xl border",
-                      active
-                        ? "border-white/25 bg-linear-to-br from-accent to-accent-strong text-white"
-                        : "border-line-soft bg-glass-soft text-fg-muted"
+                      "flex size-9 shrink-0 items-center justify-center rounded-xl text-fg-muted transition-colors",
+                      active && "well text-fg"
                     )}
                   >
                     <page.icon aria-hidden="true" className="size-[18px]" />
@@ -452,7 +458,12 @@ export function AppShell({ role, children }: { role: Role | null; children: Reac
           <AdminMenu pathname={pathname} />
         ) : (
           <div className="flex min-h-9 items-center justify-center gap-2">
-            <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-linear-to-br from-accent to-fuchsia-500">
+            <span
+              className="flex size-6 shrink-0 items-center justify-center rounded-full"
+              style={{
+                background: "radial-gradient(circle at 32% 28%, var(--accent-strong), var(--accent) 55%, #2d2a8f 100%)",
+              }}
+            >
               <Aperture aria-hidden="true" className="size-3.5 text-white" />
             </span>
             <p className="truncate text-sm font-semibold text-fg">{currentPageLabel(role, pathname)}</p>

@@ -10,7 +10,7 @@ export function OfflineBanner() {
   return (
     <div
       role="status"
-      className="sticky top-0 z-50 flex items-center justify-center gap-2 border-b border-warn-line bg-warn-soft px-4 py-2 text-center text-sm font-medium text-warn backdrop-blur-xl print:hidden"
+      className="sticky top-0 z-50 flex items-center justify-center gap-2 border-b border-warn-line bg-warn-soft px-4 py-2 text-center text-sm font-medium text-warn print:hidden"
     >
       <WifiOff aria-hidden="true" className="size-4 shrink-0" />
       <span>
