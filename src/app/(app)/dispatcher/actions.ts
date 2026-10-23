@@ -12,7 +12,8 @@ export type UnitDetails = {
   model: string;
   color: string;
   grade: string;
-  serialNumber: string;
+  /** Null when the camera has no serial number. */
+  serialNumber: string | null;
   note: string | null;
   status: UnitStatus;
   testerName: string;
@@ -35,7 +36,7 @@ const UNIT_SELECT = `id, serial_number, note, status, tested_at, picked_at,
 
 type RawUnitRow = {
   id: string;
-  serial_number: string;
+  serial_number: string | null;
   note: string | null;
   status: UnitStatus;
   tested_at: string;

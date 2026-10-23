@@ -149,8 +149,8 @@ export function TesterForm({ grades }: { grades: Grade[] }) {
         </Select>
       </Field>
 
-      <Field label="Serial number">
-        <SerialInput required value={serialNumber} onValueChange={setSerialNumber} />
+      <Field label="Serial number" hint="Optional — leave blank if the camera has none.">
+        <SerialInput value={serialNumber} onValueChange={setSerialNumber} />
       </Field>
 
       <Field label="Note" hint="Optional — visible to the dispatcher when they pick this camera.">
@@ -171,7 +171,6 @@ export function TesterForm({ grades }: { grades: Grade[] }) {
           !effectiveBrandName ||
           !effectiveModelName ||
           !color ||
-          !serialNumber ||
           (asinOptions.length > 0 && !asin)
         }
         className="w-full"

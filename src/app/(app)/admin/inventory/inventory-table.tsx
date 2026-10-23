@@ -1,13 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Pencil, Plus, Trash2, X } from "lucide-react";
+import { Eraser, Pencil, Plus, Trash2, X } from "lucide-react";
 import { Button, Card, Field, Input, Message, Select } from "@/components/ui";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ColorPill } from "@/components/color-pill";
 import { CAMERA_COLORS, findColor } from "@/lib/colors";
 import { cn } from "@/lib/cn";
-import { emptyInventory, type InventoryData, type InventoryRow } from "./actions";
+import { emptyInventory, zeroInventory, type InventoryData, type InventoryRow } from "./actions";
 import { AsinDialog } from "./asin-dialog";
 
 type StockFilter = "all" | "in" | "out";
@@ -30,6 +30,7 @@ export function InventoryTable({ initialRows, grades }: { initialRows: Inventory
   const [notice, setNotice] = useState<string | null>(null);
   const [asinRow, setAsinRow] = useState<InventoryRow | null>(null);
   const [emptying, setEmptying] = useState(false);
+  const [zeroing, setZeroing] = useState(false);
   const [emptyPassword, setEmptyPassword] = useState("");
   const [emptyBusy, setEmptyBusy] = useState(false);
   const [emptyError, setEmptyError] = useState<string | null>(null);
@@ -75,6 +76,25 @@ export function InventoryTable({ initialRows, grades }: { initialRows: Inventory
     [filtered, filters.grade]
   );
 
+  async function handleZero() {
+    setEmptyBusy(true);
+    setEmptyError(null);
+    try {
+      const result = await zeroInventory(emptyPassword);
+      if (!result.ok) {
+        setEmptyError(result.error);
+        return;
+      }
+      setNotice(`All stock zeroed — ${result.lines} line${result.lines === 1 ? "" : "s"} set to 0. No camera records were deleted.`);
+      setZeroing(false);
+      setEmptyPassword("");
+    } catch {
+      setEmptyError("Could not zero the stock — check your connection and try again.");
+    } finally {
+      setEmptyBusy(false);
+    }
+  }
+
   async function handleEmpty() {
     setEmptyBusy(true);
     setEmptyError(null);
@@ -109,6 +129,20 @@ export function InventoryTable({ initialRows, grades }: { initialRows: Inventory
             {filtered.length} line{filtered.length === 1 ? "" : "s"} · {shownUnits} camera
             {shownUnits === 1 ? "" : "s"} in stock
           </p>
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            disabled={totalInStock === 0}
+            onClick={() => {
+              setEmptyPassword("");
+              setEmptyError(null);
+              setZeroing(true);
+            }}
+          >
+            <Eraser aria-hidden="true" />
+            Zero all stock
+          </Button>
           <Button
             type="button"
             size="sm"
@@ -351,6 +385,50 @@ export function InventoryTable({ initialRows, grades }: { initialRows: Inventory
             onChange={(e) => setEmptyPassword(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter" && emptyPassword && !emptyBusy) void handleEmpty();
+            }}
+          />
+        </Field>
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={zeroing}
+        onOpenChange={(open) => {
+          if (!open) {
+            setZeroing(false);
+            setEmptyPassword("");
+            setEmptyError(null);
+          }
+        }}
+        title="Set all stock to zero?"
+        description={
+          <>
+            <p className="font-medium text-fg">
+              Every model&rsquo;s quantity ({totalInStock} camera{totalInStock === 1 ? "" : "s"} in total) becomes 0.
+            </p>
+            <p>
+              No camera records are deleted — they stay in the system, so each can still be looked up, scanned and
+              picked. New cameras tested from now on count up from zero. A line-by-line record is added to the
+              adjustment log.
+            </p>
+          </>
+        }
+        confirmLabel="Zero all stock"
+        destructive
+        busy={emptyBusy}
+        error={emptyError}
+        onConfirm={() => {
+          if (emptyPassword) void handleZero();
+        }}
+      >
+        <Field label="Enter your password to confirm">
+          <Input
+            type="password"
+            autoComplete="current-password"
+            autoFocus
+            value={emptyPassword}
+            onChange={(e) => setEmptyPassword(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && emptyPassword && !emptyBusy) void handleZero();
             }}
           />
         </Field>

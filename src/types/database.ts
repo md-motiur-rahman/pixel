@@ -59,7 +59,7 @@ export interface Database {
         {
           id: string;
           sku_line_id: string;
-          serial_number: string;
+          serial_number: string | null;
           note: string | null;
           status: UnitStatus;
           tester_id: string;
@@ -69,14 +69,14 @@ export interface Database {
         },
         {
           sku_line_id: string;
-          serial_number: string;
+          serial_number?: string | null;
           note?: string | null;
           tester_id: string;
           status?: UnitStatus;
         },
         {
           sku_line_id?: string;
-          serial_number?: string;
+          serial_number?: string | null;
           note?: string | null;
           status?: UnitStatus;
           picked_by?: string | null;
@@ -141,6 +141,7 @@ export interface Database {
         Returns: undefined;
       };
       empty_inventory: { Args: { p_admin_id: string }; Returns: number };
+      zero_inventory: { Args: { p_admin_id: string }; Returns: number };
       resolve_stock_count_line: {
         Args: { p_stock_count_id: string; p_sku_line_id: string; p_expected_quantity: number };
         Returns: number;

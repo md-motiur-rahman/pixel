@@ -40,7 +40,8 @@ export function buildLabelZpl({
     // instead of letting it run off the label edge.
     `^FO160,34^FB230,2,0,L,0^A0N,20,20^FD${line1}^FS`,
     `^FO160,90^A0N,18,18^FD${line2}^FS`,
-    `^FO160,114^A0N,16,16^FDSN ${serial}^FS`,
+    // No serial number? Leave that line off rather than print "SN ".
+    ...(serial ? [`^FO160,114^A0N,16,16^FDSN ${serial}^FS`] : []),
     "^XZ",
   ].join("\n");
 }

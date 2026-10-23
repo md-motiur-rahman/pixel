@@ -243,10 +243,12 @@ export function ScanPanel() {
           </div>
 
           <dl className="mt-4 space-y-1.5 text-sm">
-            <div className="flex justify-between gap-3">
-              <dt className="text-fg-muted">Serial</dt>
-              <dd className="text-right text-fg">{unit.serialNumber}</dd>
-            </div>
+            {unit.serialNumber && (
+              <div className="flex justify-between gap-3">
+                <dt className="text-fg-muted">Serial</dt>
+                <dd className="text-right text-fg">{unit.serialNumber}</dd>
+              </div>
+            )}
             {unit.note && (
               <div className="flex justify-between gap-3">
                 <dt className="text-fg-muted">Note</dt>

@@ -174,7 +174,9 @@ export function EditUnitPanel({ grades }: { grades: Grade[] }) {
       {unit && (
         <form onSubmit={handleSave} className="mt-4 space-y-4">
           <div className="flex items-center justify-between gap-3">
-            <p className="text-sm text-fg-muted">Serial {unit.serialNumber}</p>
+            <p className="text-sm text-fg-muted">
+              {unit.serialNumber ? `Serial ${unit.serialNumber}` : "No serial number"}
+            </p>
             <Button
               type="button"
               size="sm"
@@ -232,8 +234,8 @@ export function EditUnitPanel({ grades }: { grades: Grade[] }) {
             </Select>
           </Field>
 
-          <Field label="Serial number">
-            <SerialInput required value={serialNumber} onValueChange={setSerialNumber} />
+          <Field label="Serial number" hint="Optional — leave blank if the camera has none.">
+            <SerialInput value={serialNumber} onValueChange={setSerialNumber} />
           </Field>
 
           <Field label="Note">
@@ -244,7 +246,7 @@ export function EditUnitPanel({ grades }: { grades: Grade[] }) {
 
           <Button
             type="submit"
-            disabled={saving || !effectiveBrandName || !effectiveModelName || !color || !serialNumber}
+            disabled={saving || !effectiveBrandName || !effectiveModelName || !color}
             className="w-full"
           >
             {saving ? "Saving…" : "Save changes"}

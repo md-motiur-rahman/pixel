@@ -29,7 +29,7 @@ const SELECT = `id, serial_number, note,
 
 function toEditableUnit(data: {
   id: string;
-  serial_number: string;
+  serial_number: string | null;
   note: string | null;
   sku_lines: unknown;
 }): EditableUnit {
@@ -51,7 +51,7 @@ function toEditableUnit(data: {
     color: skuLine.model_variants.color,
     gradeId: skuLine.grade_id,
     gradeCode: skuLine.grades.code,
-    serialNumber: data.serial_number,
+    serialNumber: data.serial_number ?? "",
     note: data.note,
     modelVariantId: skuLine.model_variant_id,
   };
@@ -107,21 +107,23 @@ export async function updateUnitDetails(
   const color = canonicalColor(input.color);
   const serialNumber = input.serialNumber.trim();
 
-  if (!brandName || !modelName || !color || !input.gradeId || !serialNumber) {
-    return { ok: false, error: "All fields except note are required." };
+  if (!brandName || !modelName || !color || !input.gradeId) {
+    return { ok: false, error: "Brand, model, color and grade are required." };
   }
 
-  // Check the serial first, so a clash doesn't leave half-created
-  // brands/models/colors behind in the catalog.
-  const { data: serialRows, error: serialCheckError } = await supabase
-    .from("units")
-    .select("id")
-    .ilike("serial_number", escapeLikePattern(serialNumber))
-    .neq("id", unitId)
-    .limit(1);
-  if (serialCheckError) return { ok: false, error: serialCheckError.message };
-  if (serialRows && serialRows.length > 0) {
-    return { ok: false, error: `Serial number "${serialNumber}" is already used by another camera.` };
+  // Check the serial first (when there is one), so a clash doesn't leave half-created
+  // brands/models/colors behind in the catalog. A serial number is optional.
+  if (serialNumber) {
+    const { data: serialRows, error: serialCheckError } = await supabase
+      .from("units")
+      .select("id")
+      .ilike("serial_number", escapeLikePattern(serialNumber))
+      .neq("id", unitId)
+      .limit(1);
+    if (serialCheckError) return { ok: false, error: serialCheckError.message };
+    if (serialRows && serialRows.length > 0) {
+      return { ok: false, error: `Serial number "${serialNumber}" is already used by another camera.` };
+    }
   }
 
   // Same find-or-create cascade as creating a unit — a tester correcting a
@@ -190,7 +192,7 @@ export async function updateUnitDetails(
 
   const { data: updated, error } = await supabase
     .from("units")
-    .update({ sku_line_id: skuLineId, serial_number: serialNumber, note: input.note.trim() || null })
+    .update({ sku_line_id: skuLineId, serial_number: serialNumber || null, note: input.note.trim() || null })
     .eq("id", unitId)
     .select("id");
 

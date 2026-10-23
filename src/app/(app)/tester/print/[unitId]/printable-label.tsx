@@ -39,7 +39,7 @@ export function PrintableLabel({
           <p className="wrap-break-word text-[9px] font-semibold leading-tight">{brandName}</p>
           <p className="wrap-break-word text-[9px] font-semibold leading-tight">{labelLine1}</p>
           <p className="text-[9px] leading-tight">{labelLine2}</p>
-          <p className="truncate text-[8px] leading-tight text-neutral-500">SN {serialNumber}</p>
+          {serialNumber && <p className="truncate text-[8px] leading-tight text-neutral-500">SN {serialNumber}</p>}
         </div>
       </div>
 

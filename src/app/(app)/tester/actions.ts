@@ -36,20 +36,23 @@ export async function createTestedUnit(
   const color = canonicalColor(input.color);
   const serialNumber = input.serialNumber.trim();
 
-  if (!brandName || !modelName || !color || !input.gradeId || !serialNumber) {
-    return { ok: false, error: "All fields except note are required." };
+  if (!brandName || !modelName || !color || !input.gradeId) {
+    return { ok: false, error: "Brand, model, color and grade are required." };
   }
 
-  // 0. Serial first — a duplicate would otherwise only fail at the very end,
-  //    after a new brand/model/color had already been created for nothing.
-  const { data: serialRows, error: serialCheckError } = await supabase
-    .from("units")
-    .select("id")
-    .ilike("serial_number", escapeLikePattern(serialNumber))
-    .limit(1);
-  if (serialCheckError) return { ok: false, error: `Could not check serial number: ${serialCheckError.message}` };
-  if (serialRows && serialRows.length > 0) {
-    return { ok: false, error: `Serial number "${serialNumber}" is already in the system.` };
+  // 0. Serial first (when there is one) — a duplicate would otherwise only fail at
+  //    the very end, after a new brand/model/color had already been created for nothing.
+  //    A serial number is optional: the camera is identified by its own id.
+  if (serialNumber) {
+    const { data: serialRows, error: serialCheckError } = await supabase
+      .from("units")
+      .select("id")
+      .ilike("serial_number", escapeLikePattern(serialNumber))
+      .limit(1);
+    if (serialCheckError) return { ok: false, error: `Could not check serial number: ${serialCheckError.message}` };
+    if (serialRows && serialRows.length > 0) {
+      return { ok: false, error: `Serial number "${serialNumber}" is already in the system.` };
+    }
   }
 
   // 1. Brand — reuse selected id, or find/create by name.
@@ -133,7 +136,7 @@ export async function createTestedUnit(
     .from("units")
     .insert({
       sku_line_id: skuLineId,
-      serial_number: serialNumber,
+      serial_number: serialNumber || null,
       note: input.note.trim() || null,
       tester_id: user.id,
     })

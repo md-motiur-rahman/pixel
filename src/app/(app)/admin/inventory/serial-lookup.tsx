@@ -89,7 +89,7 @@ export function SerialLookup() {
               <Badge tone="neutral" className="normal-case">
                 Grade {unit.gradeCode}
               </Badge>
-              <span>Serial {unit.serialNumber}</span>
+              <span>{unit.serialNumber ? `Serial ${unit.serialNumber}` : "No serial number"}</span>
             </p>
             {unit.note && <p className="mt-1 text-xs text-fg-subtle">Note: {unit.note}</p>}
           </div>

@@ -37,7 +37,7 @@ export async function GET() {
       skuLine.model_variants.color,
       skuLine.grades.code,
       skuLine.code,
-      u.serial_number,
+      u.serial_number ?? "",
       u.note ?? "",
       u.status,
       tester?.full_name ?? "",

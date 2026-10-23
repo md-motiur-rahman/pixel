@@ -55,7 +55,8 @@ export default async function PrintLabelPage({
           <p className="text-sm font-medium">Camera saved</p>
         </div>
         <p className="mt-1 text-sm text-fg-muted">
-          {brandName} {modelName} {color} — Grade {gradeCode}, serial {unit.serial_number}
+          {brandName} {modelName} {color} — Grade {gradeCode}
+          {unit.serial_number ? `, serial ${unit.serial_number}` : ""}
           {unit.note ? `, note: ${unit.note}` : ""}
         </p>
         <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-start">
@@ -65,7 +66,7 @@ export default async function PrintLabelPage({
             brandName={brandName}
             labelLine1={labelLine1}
             labelLine2={labelLine2}
-            serialNumber={unit.serial_number}
+            serialNumber={unit.serial_number ?? ""}
           />
         </div>
       </div>
@@ -76,7 +77,7 @@ export default async function PrintLabelPage({
           brandName={brandName}
           labelLine1={labelLine1}
           labelLine2={labelLine2}
-          serialNumber={unit.serial_number}
+          serialNumber={unit.serial_number ?? ""}
         />
       </div>
     </div>

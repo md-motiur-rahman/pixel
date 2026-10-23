@@ -105,15 +105,13 @@ export async function saveAsins(
   return { ok: true, asins: checked.asins };
 }
 
-// Permanently deletes every in-stock camera record. Requires the admin's own
-// password, re-checked here on the server; the database function itself only
-// accepts the service role, so this check can't be skipped from the browser.
-export async function emptyInventory(
+// Re-checks the signed-in admin's own password on the server. The bulk tools below
+// call database functions that only the service role may run, so this check can't
+// be skipped from the browser.
+async function confirmAdminPassword(
+  admin: Extract<Awaited<ReturnType<typeof requireAdmin>>, { ok: true }>,
   password: string
-): Promise<{ ok: true; deleted: number } | { ok: false; error: string }> {
-  const admin = await requireAdmin();
-  if (!admin.ok) return { ok: false, error: admin.error };
-
+): Promise<{ ok: true } | { ok: false; error: string }> {
   const { data: profile } = await admin.supabase.from("profiles").select("email").eq("id", admin.userId).single();
   const valid = profile?.email ? await verifyPassword(profile.email, password) : false;
   if (!valid) {
@@ -121,6 +119,18 @@ export async function emptyInventory(
     await new Promise((resolve) => setTimeout(resolve, 800));
     return { ok: false, error: "That password isn't correct." };
   }
+  return { ok: true };
+}
+
+// Permanently deletes every in-stock camera record (password required).
+export async function emptyInventory(
+  password: string
+): Promise<{ ok: true; deleted: number } | { ok: false; error: string }> {
+  const admin = await requireAdmin();
+  if (!admin.ok) return { ok: false, error: admin.error };
+
+  const confirmed = await confirmAdminPassword(admin, password);
+  if (!confirmed.ok) return confirmed;
 
   const { data, error } = await createAdminClient().rpc("empty_inventory", { p_admin_id: admin.userId });
   if (error) {
@@ -135,4 +145,29 @@ export async function emptyInventory(
 
   revalidatePath("/admin/inventory");
   return { ok: true, deleted: data };
+}
+
+// Sets every model's stock to 0 without deleting any camera record (password required).
+export async function zeroInventory(
+  password: string
+): Promise<{ ok: true; lines: number } | { ok: false; error: string }> {
+  const admin = await requireAdmin();
+  if (!admin.ok) return { ok: false, error: admin.error };
+
+  const confirmed = await confirmAdminPassword(admin, password);
+  if (!confirmed.ok) return confirmed;
+
+  const { data, error } = await createAdminClient().rpc("zero_inventory", { p_admin_id: admin.userId });
+  if (error) {
+    if (error.code === "PGRST202") {
+      return {
+        ok: false,
+        error: "Zeroing stock needs a database update — run supabase/migration_8_optional_serial_and_zero_stock.sql in Supabase.",
+      };
+    }
+    return { ok: false, error: error.message };
+  }
+
+  revalidatePath("/admin/inventory");
+  return { ok: true, lines: data };
 }
