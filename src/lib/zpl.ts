@@ -12,17 +12,20 @@ export function buildLabelZpl({
   brandName,
   labelLine1,
   labelLine2,
+  labelLine3,
   serialNumber,
 }: {
   unitId: string;
   brandName: string;
   labelLine1: string;
   labelLine2: string;
+  labelLine3: string;
   serialNumber: string;
 }): string {
   const brand = sanitizeZplText(brandName);
   const line1 = sanitizeZplText(labelLine1);
   const line2 = sanitizeZplText(labelLine2);
+  const line3 = sanitizeZplText(labelLine3);
   const serial = sanitizeZplText(serialNumber);
 
   // 2 x 1 in label at 203 dpi (Zebra GK420D's native resolution) = 406 x 203
@@ -35,13 +38,16 @@ export function buildLabelZpl({
     // QR: model 2, magnification 4, error correction M, automatic data mode.
     "^FO16,16^BQN,2,4",
     `^FDMA,${unitId}^FS`,
-    `^FO160,8^A0N,28,28^FD${brand}^FS`,
+    `^FO160,8^A0N,26,26^FD${brand}^FS`,
     // Model name is the field most likely to run long — wrap it to 2 lines
     // instead of letting it run off the label edge.
-    `^FO160,40^FB230,2,0,L,0^A0N,28,28^FD${line1}^FS`,
-    `^FO160,104^A0N,26,26^FD${line2}^FS`,
+    `^FO160,38^FB230,2,0,L,0^A0N,26,26^FD${line1}^FS`,
+    // Colour and grade each get a fixed line below the (up to 2-line) model,
+    // so a long model name can never push them off the label.
+    `^FO160,96^A0N,26,26^FD${line2}^FS`,
+    `^FO160,126^A0N,24,24^FD${line3}^FS`,
     // No serial number? Leave that line off rather than print "SN ".
-    ...(serial ? [`^FO160,136^A0N,22,22^FDSN ${serial}^FS`] : []),
+    ...(serial ? [`^FO160,156^A0N,20,20^FDSN ${serial}^FS`] : []),
     "^XZ",
   ].join("\n");
 }

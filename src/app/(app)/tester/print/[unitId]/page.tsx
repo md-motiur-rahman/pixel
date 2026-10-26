@@ -34,8 +34,11 @@ export default async function PrintLabelPage({
   const modelName = skuLine.model_variants.models.name;
   const color = skuLine.model_variants.color;
   const gradeCode = skuLine.grades.code;
-  const labelLine1 = `${modelName} ${color}`.trim();
-  const labelLine2 = `Grade ${gradeCode}`;
+  // Colour gets its own line — appended to the model name it wrapped off the
+  // end of the label and never printed.
+  const labelLine1 = modelName;
+  const labelLine2 = color;
+  const labelLine3 = `Grade ${gradeCode}`;
 
   // Each unit gets its own QR — this is the ID a dispatcher/checker scan resolves
   // straight to this exact physical camera, no manual matching needed.
@@ -66,6 +69,7 @@ export default async function PrintLabelPage({
             brandName={brandName}
             labelLine1={labelLine1}
             labelLine2={labelLine2}
+            labelLine3={labelLine3}
             serialNumber={unit.serial_number ?? ""}
           />
         </div>
@@ -77,6 +81,7 @@ export default async function PrintLabelPage({
           brandName={brandName}
           labelLine1={labelLine1}
           labelLine2={labelLine2}
+          labelLine3={labelLine3}
           serialNumber={unit.serial_number ?? ""}
         />
       </div>

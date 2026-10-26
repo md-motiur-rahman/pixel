@@ -13,12 +13,14 @@ export function PrintableLabel({
   brandName,
   labelLine1,
   labelLine2,
+  labelLine3,
   serialNumber,
 }: {
   qrDataUrl: string;
   brandName: string;
   labelLine1: string;
   labelLine2: string;
+  labelLine3: string;
   serialNumber: string;
 }) {
   return (
@@ -36,9 +38,10 @@ export function PrintableLabel({
           style={{ height: `${QR_SIZE_IN}in`, width: `${QR_SIZE_IN}in` }}
         />
         <div className="min-w-0 flex-1 text-left">
-          <p className="wrap-break-word text-[13px] font-semibold leading-tight">{brandName}</p>
-          <p className="wrap-break-word text-[13px] font-semibold leading-tight">{labelLine1}</p>
-          <p className="text-[12px] leading-tight">{labelLine2}</p>
+          <p className="wrap-break-word text-[12px] font-semibold leading-tight">{brandName}</p>
+          <p className="wrap-break-word text-[12px] font-semibold leading-tight">{labelLine1}</p>
+          <p className="truncate text-[12px] font-semibold leading-tight">{labelLine2}</p>
+          <p className="text-[11px] leading-tight">{labelLine3}</p>
           {serialNumber && <p className="truncate text-[10px] leading-tight text-neutral-500">SN {serialNumber}</p>}
         </div>
       </div>
