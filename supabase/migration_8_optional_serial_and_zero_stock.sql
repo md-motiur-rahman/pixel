@@ -53,7 +53,12 @@ begin
   set quantity_adjustment = - (
         select count(*) from units u where u.sku_line_id = sku_lines.id and u.status = 'in_stock'
       ),
-      quantity = 0;
+      quantity = 0
+  -- Supabase rejects an UPDATE with no WHERE clause ("UPDATE requires a WHERE
+  -- clause"), so only touch lines that aren't already at zero.
+  where quantity <> 0
+     or quantity_adjustment <> 0
+     or exists (select 1 from units u where u.sku_line_id = sku_lines.id and u.status = 'in_stock');
 
   return v_lines;
 end;
