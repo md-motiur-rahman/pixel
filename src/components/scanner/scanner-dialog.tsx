@@ -24,7 +24,7 @@ export function ScannerDialog({
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm data-[state=open]:animate-in data-[state=open]:fade-in" />
+        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/70 data-[state=open]:animate-in data-[state=open]:fade-in" />
         <Dialog.Content
           className={cn(
             "dark fixed inset-0 z-50 flex flex-col overflow-hidden bg-black text-fg outline-none",
