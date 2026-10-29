@@ -125,8 +125,16 @@ export interface Database {
         { finished_at?: string | null; note?: string | null }
       >;
       model_asins: Table<
-        { id: string; model_id: string; asin: string; created_by: string | null; created_at: string },
-        { model_id: string; asin: string; created_by?: string | null },
+        {
+          id: string;
+          model_id: string;
+          /** The colour this ASIN is for; null = an older ASIN that applies to every colour. */
+          color: string | null;
+          asin: string;
+          created_by: string | null;
+          created_at: string;
+        },
+        { model_id: string; color?: string | null; asin: string; created_by?: string | null },
         Record<string, never>
       >;
       variant_asins: Table<

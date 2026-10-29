@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Plus, Search, X } from "lucide-react";
 import { Combobox, type ComboboxOption } from "@/components/combobox";
+import { ColorSelect } from "@/components/color-select";
+import { ColorPill } from "@/components/color-pill";
 import { Button, Card, Field, Input, Message } from "@/components/ui";
 import { searchBrands, searchModels } from "@/app/(app)/tester/search-actions";
 import { normalizeAsin } from "@/lib/asin";
@@ -37,7 +39,8 @@ export function DataEntryScreen({ initialEntries }: { initialEntries: ModelEntry
         <div className="border-b border-line px-4 py-4 sm:px-5">
           <h2 className="text-sm font-semibold text-fg">Models &amp; ASINs</h2>
           <p className="mt-0.5 text-sm text-fg-muted">
-            {query.trim() ? "Search results" : "Latest entries"} — testers pick from these when they log a camera.
+            {query.trim() ? "Search results" : "Latest entries"} — each colour of a model has its own ASIN(s). Testers
+            pick from these when they log a camera of that model and colour.
           </p>
           <div className="relative mt-3">
             <Search aria-hidden="true" className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-fg-subtle" />
@@ -71,8 +74,9 @@ function EntryForm({ onSaved }: { onSaved: () => void }) {
   const [brandName, setBrandName] = useState("");
   const [model, setModel] = useState<ComboboxOption | null>(null);
   const [modelName, setModelName] = useState("");
+  const [color, setColor] = useState("");
   const [asins, setAsins] = useState<string[]>([""]);
-  // Bumped after each save to clear the model field (the brand is kept for quick batches).
+  // Bumped to clear the model field when the brand changes.
   const [modelKey, setModelKey] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -81,7 +85,7 @@ function EntryForm({ onSaved }: { onSaved: () => void }) {
   const effectiveBrand = brand?.label ?? brandName;
   const effectiveModel = model?.label ?? modelName;
   const filledAsins = asins.filter((a) => a.trim());
-  const canSave = Boolean(effectiveBrand && effectiveModel && filledAsins.length > 0) && !saving;
+  const canSave = Boolean(effectiveBrand && effectiveModel && color && filledAsins.length > 0) && !saving;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -94,6 +98,7 @@ function EntryForm({ onSaved }: { onSaved: () => void }) {
         brandName: effectiveBrand,
         modelId: model?.id ?? null,
         modelName: effectiveModel,
+        color,
         asins,
       });
       if (!result.ok) {
@@ -101,10 +106,9 @@ function EntryForm({ onSaved }: { onSaved: () => void }) {
         return;
       }
       setSuccess(result.message);
-      setModel(null);
-      setModelName("");
+      // Keep the brand and model: the next entry is usually another colour of it.
+      setColor("");
       setAsins([""]);
-      setModelKey((k) => k + 1);
       onSaved();
     } catch {
       setError("Could not save — check your connection and try again.");
@@ -116,9 +120,10 @@ function EntryForm({ onSaved }: { onSaved: () => void }) {
   return (
     <form onSubmit={handleSubmit} className="glass space-y-5 rounded-3xl p-5 sm:p-6">
       <div>
-        <h2 className="text-sm font-semibold text-fg">Add a model</h2>
+        <h2 className="text-sm font-semibold text-fg">Add ASINs for a model &amp; colour</h2>
         <p className="mt-0.5 text-sm text-fg-muted">
-          Enter the brand, model and its ASIN(s). Testers then pick them from a dropdown.
+          Each colour of a model has its own ASIN(s). Pick the brand, model and colour, then enter its ASIN(s). After
+          saving, the model stays selected so you can add the next colour.
         </p>
       </div>
 
@@ -155,6 +160,10 @@ function EntryForm({ onSaved }: { onSaved: () => void }) {
         }}
         search={(q) => (brand?.id ? searchModels(brand.id, q) : Promise.resolve([]))}
       />
+
+      <Field label="Colour" hint="The ASIN(s) below are for this colour only.">
+        <ColorSelect value={color} onValueChange={setColor} disabled={!effectiveModel} />
+      </Field>
 
       <div className="space-y-3">
         {asins.map((value, i) => (
@@ -207,8 +216,22 @@ function EntryForm({ onSaved }: { onSaved: () => void }) {
   );
 }
 
+// A model's ASINs, one group per colour (older colour-less ones last).
+function groupByColour(asins: ModelEntry["asins"]) {
+  const groups = new Map<string, { color: string | null; asins: ModelEntry["asins"] }>();
+  for (const a of asins) {
+    const key = a.color?.toLowerCase() ?? "";
+    if (!groups.has(key)) groups.set(key, { color: a.color, asins: [] });
+    groups.get(key)!.asins.push(a);
+  }
+  return [...groups.values()].sort((x, y) =>
+    x.color === null ? 1 : y.color === null ? -1 : x.color.localeCompare(y.color)
+  );
+}
+
 function ModelRow({ entry, onChanged }: { entry: ModelEntry; onChanged: () => void }) {
   const [newAsin, setNewAsin] = useState("");
+  const [newColor, setNewColor] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -245,37 +268,53 @@ function ModelRow({ entry, onChanged }: { entry: ModelEntry; onChanged: () => vo
         <p className="text-sm font-medium text-fg">{entry.model}</p>
       </div>
 
-      <div className="flex flex-wrap gap-1.5">
-        {entry.asins.length === 0 && <span className="text-xs text-warn">No ASIN yet</span>}
-        {entry.asins.map((a) => (
-          <span
-            key={a.id}
-            className="inline-flex items-center gap-1 rounded-md border border-line bg-glass-soft py-0.5 pr-0.5 pl-1.5 font-mono text-xs text-fg"
-          >
-            {a.asin}
-            <button
-              type="button"
-              disabled={busy}
-              aria-label={`Remove ${a.asin}`}
-              onClick={() => void run(() => removeModelAsin(a.id))}
-              className="flex size-5 items-center justify-center rounded text-fg-subtle hover:bg-glass-hover hover:text-danger disabled:opacity-50"
-            >
-              <X aria-hidden="true" className="size-3" />
-            </button>
-          </span>
+      {entry.asins.length === 0 && <p className="text-xs text-warn">No ASIN yet</p>}
+      <div className="space-y-2">
+        {groupByColour(entry.asins).map((group) => (
+          <div key={group.color ?? ""} className="flex flex-wrap items-center gap-1.5">
+            <span className="w-28 shrink-0">
+              {group.color ? (
+                <ColorPill color={group.color} />
+              ) : (
+                <span className="text-xs text-fg-subtle" title="Entered before colours were recorded — offered for every colour">
+                  Any colour
+                </span>
+              )}
+            </span>
+            {group.asins.map((a) => (
+              <span
+                key={a.id}
+                className="inline-flex items-center gap-1 rounded-md border border-line bg-glass-soft py-0.5 pr-0.5 pl-1.5 font-mono text-xs text-fg"
+              >
+                {a.asin}
+                <button
+                  type="button"
+                  disabled={busy}
+                  aria-label={`Remove ${a.asin}${a.color ? ` (${a.color})` : ""}`}
+                  onClick={() => void run(() => removeModelAsin(a.id))}
+                  className="flex size-5 items-center justify-center rounded text-fg-subtle hover:bg-glass-hover hover:text-danger disabled:opacity-50"
+                >
+                  <X aria-hidden="true" className="size-3" />
+                </button>
+              </span>
+            ))}
+          </div>
         ))}
       </div>
 
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          if (!newAsin.trim()) return;
-          void run(() => addAsinToModel(entry.modelId, newAsin)).then((ok) => {
+          if (!newAsin.trim() || !newColor) return;
+          void run(() => addAsinToModel(entry.modelId, newColor, newAsin)).then((ok) => {
             if (ok) setNewAsin("");
           });
         }}
-        className="flex gap-2"
+        className="flex flex-wrap gap-2"
       >
+        <div className="w-44">
+          <ColorSelect value={newColor} onValueChange={setNewColor} />
+        </div>
         <Input
           type="text"
           autoCapitalize="characters"
@@ -288,7 +327,7 @@ function ModelRow({ entry, onChanged }: { entry: ModelEntry; onChanged: () => vo
           onChange={(e) => setNewAsin(normalizeAsin(e.target.value))}
           className="min-h-9 max-w-52 py-1 font-mono text-sm tracking-wide"
         />
-        <Button type="submit" size="sm" variant="secondary" disabled={busy || !newAsin.trim()}>
+        <Button type="submit" size="sm" variant="secondary" disabled={busy || !newAsin.trim() || !newColor}>
           <Plus aria-hidden="true" />
           Add
         </Button>

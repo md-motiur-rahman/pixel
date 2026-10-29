@@ -7,16 +7,20 @@ import { escapeLikePattern } from "@/lib/escape-like";
 import { findOrCreate } from "@/lib/find-or-create";
 import { validateAsins } from "@/lib/asin";
 import { fetchProfileRoles, hasRole } from "@/lib/roles";
+import { canonicalColor } from "@/lib/colors";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 // A model can have several ASINs (Amazon lists one per colour), so this list is
 // longer than the 3 a single model + colour row can hold.
 const MAX_MODEL_ASINS = 20;
 
+// Each model + colour has its own ASIN(s). `color` is null only for ASINs entered
+// before colours were recorded — those still apply to every colour of the model.
 export type ModelEntry = {
   modelId: string;
   brand: string;
   model: string;
-  asins: { id: string; asin: string }[];
+  asins: { id: string; asin: string; color: string | null }[];
 };
 
 type Result = { ok: true; message: string } | { ok: false; error: string };
@@ -39,6 +43,10 @@ function setupHint(code: string | undefined, message: string) {
   if (code === "PGRST205" || code === "42P01") {
     return "Data entry needs a database update — run supabase/migration_7_data_entry_role.sql in Supabase.";
   }
+  // 42703 / PGRST204: there's no model_asins.color yet.
+  if (code === "42703" || code === "PGRST204") {
+    return "ASINs per colour need a database update — run supabase/migration_14_asins_per_model_colour_entry.sql in Supabase.";
+  }
   return message;
 }
 
@@ -50,19 +58,50 @@ type RawModel = {
 };
 
 function toEntry(m: RawModel): ModelEntry {
-  const asins = (m.model_asins ?? []) as { id: string; asin: string; created_at: string }[];
+  const asins = (m.model_asins ?? []) as { id: string; asin: string; color: string | null; created_at: string }[];
   return {
     modelId: m.id,
     brand: (m.brands as { name: string }).name,
     model: m.name,
     asins: asins
       .slice()
-      .sort((a, b) => a.created_at.localeCompare(b.created_at))
-      .map(({ id, asin }) => ({ id, asin })),
+      .sort((a, b) => (a.color ?? "").localeCompare(b.color ?? "") || a.created_at.localeCompare(b.created_at))
+      .map(({ id, asin, color }) => ({ id, asin, color })),
   };
 }
 
-const MODEL_SELECT = "id, name, brands ( name ), model_asins ( id, asin, created_at )";
+const MODEL_SELECT = "id, name, brands ( name ), model_asins ( id, asin, color, created_at )";
+
+// Adds the ASINs this model + colour doesn't have yet. Returns how many were new.
+async function addAsinsForColour(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: SupabaseClient<any, any, any>,
+  modelId: string,
+  color: string,
+  asins: string[],
+  userId: string
+): Promise<{ ok: true; added: number } | { ok: false; error: string }> {
+  const { data: existing, error: readError } = await supabase
+    .from("model_asins")
+    .select("asin, color")
+    .eq("model_id", modelId)
+    .ilike("color", escapeLikePattern(color));
+  if (readError) return { ok: false, error: setupHint(readError.code, readError.message) };
+
+  const have = new Set(((existing ?? []) as { asin: string }[]).map((row) => row.asin));
+  const fresh = asins.filter((asin) => !have.has(asin));
+  if (fresh.length === 0) return { ok: true, added: 0 };
+
+  const { error } = await supabase
+    .from("model_asins")
+    .insert(fresh.map((asin) => ({ model_id: modelId, color, asin, created_by: userId })));
+  if (error) {
+    // Someone added the same one a moment ago — nothing to do.
+    if (error.code === "23505") return { ok: true, added: 0 };
+    return { ok: false, error: setupHint(error.code, error.message) };
+  }
+  return { ok: true, added: fresh.length };
+}
 
 // With a search: models whose name — or brand — matches. Without one: the most
 // recently added ASINs' models, so the latest entries are right there.
@@ -106,6 +145,7 @@ export async function addModelEntry(input: {
   brandName: string;
   modelId: string | null;
   modelName: string;
+  color: string;
   asins: string[];
 }): Promise<Result> {
   const auth = await requireDataEntry();
@@ -116,6 +156,8 @@ export async function addModelEntry(input: {
   const modelName = input.modelName.trim();
   if (!brandName) return { ok: false, error: "Enter or pick a brand." };
   if (!modelName) return { ok: false, error: "Enter or pick a model." };
+  const color = canonicalColor(input.color);
+  if (!color) return { ok: false, error: "Pick the colour these ASINs are for." };
   const checked = validateAsins(input.asins, MAX_MODEL_ASINS);
   if (!checked.ok) return { ok: false, error: checked.error };
 
@@ -145,42 +187,32 @@ export async function addModelEntry(input: {
     modelId = result.id;
   }
 
-  const { data: added, error } = await supabase
-    .from("model_asins")
-    .upsert(
-      checked.asins.map((asin) => ({ model_id: modelId, asin, created_by: userId })),
-      { onConflict: "model_id,asin", ignoreDuplicates: true }
-    )
-    .select("id");
-  if (error) return { ok: false, error: setupHint(error.code, error.message) };
+  const saved = await addAsinsForColour(supabase, modelId!, color, checked.asins, userId);
+  if (!saved.ok) return saved;
 
   revalidatePath("/data-entry");
-  const count = added?.length ?? 0;
+  const count = saved.added;
   const skipped = checked.asins.length - count;
   return {
     ok: true,
     message:
-      `${brandName} ${modelName} saved — ${count} ASIN${count === 1 ? "" : "s"} added` +
-      (skipped > 0 ? ` (${skipped} already on this model).` : "."),
+      `${brandName} ${modelName} (${color}) saved — ${count} ASIN${count === 1 ? "" : "s"} added` +
+      (skipped > 0 ? ` (${skipped} already on this colour).` : "."),
   };
 }
 
-export async function addAsinToModel(modelId: string, asin: string): Promise<Result> {
+export async function addAsinToModel(modelId: string, colorInput: string, asin: string): Promise<Result> {
   const auth = await requireDataEntry();
   if (!auth.ok) return auth;
 
+  const color = canonicalColor(colorInput);
+  if (!color) return { ok: false, error: "Pick the colour this ASIN is for." };
   const checked = validateAsins([asin], 1);
   if (!checked.ok) return { ok: false, error: checked.error };
 
-  const { data, error } = await auth.supabase
-    .from("model_asins")
-    .upsert({ model_id: modelId, asin: checked.asins[0], created_by: auth.userId }, {
-      onConflict: "model_id,asin",
-      ignoreDuplicates: true,
-    })
-    .select("id");
-  if (error) return { ok: false, error: setupHint(error.code, error.message) };
-  if (!data || data.length === 0) return { ok: false, error: `${checked.asins[0]} is already on this model.` };
+  const saved = await addAsinsForColour(auth.supabase, modelId, color, checked.asins, auth.userId);
+  if (!saved.ok) return saved;
+  if (saved.added === 0) return { ok: false, error: `${checked.asins[0]} is already on ${color}.` };
 
   revalidatePath("/data-entry");
   return { ok: true, message: "ASIN added." };

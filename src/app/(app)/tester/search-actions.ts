@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import type { ComboboxOption } from "@/components/combobox";
 import { escapeLikePattern } from "@/lib/escape-like";
+import { canonicalColor } from "@/lib/colors";
 
 export async function searchBrands(query: string): Promise<ComboboxOption[]> {
   const supabase = await createClient();
@@ -30,11 +31,26 @@ export async function searchModels(brandId: string, query: string): Promise<Comb
 
 // The ASINs data entry staff have added for a model — the tester picks one when
 // logging a camera. Empty (not an error) if there are none or the table isn't set up yet.
-export async function listModelAsins(modelId: string): Promise<string[]> {
-  if (!modelId) return [];
+// The ASINs data entry added for this model in this colour — plus any older ones
+// entered before colours were recorded (those apply to every colour).
+export async function listModelAsins(modelId: string, color: string): Promise<string[]> {
+  if (!modelId || !color.trim()) return [];
   const supabase = await createClient();
-  const { data } = await supabase.from("model_asins").select("asin").eq("model_id", modelId).order("created_at");
-  return (data ?? []).map((row) => row.asin);
+  const { data, error } = await supabase
+    .from("model_asins")
+    .select("asin, color")
+    .eq("model_id", modelId)
+    .order("created_at");
+  // Before migration_14 there's no colour column — fall back to the model's list.
+  if (error) {
+    const legacy = await supabase.from("model_asins").select("asin").eq("model_id", modelId).order("created_at");
+    return (legacy.data ?? []).map((row) => row.asin);
+  }
+  const wanted = canonicalColor(color).toLowerCase();
+  const asins = (data ?? [])
+    .filter((row) => row.color === null || canonicalColor(row.color).toLowerCase() === wanted)
+    .map((row) => row.asin);
+  return [...new Set(asins)];
 }
 
 export async function listGrades() {

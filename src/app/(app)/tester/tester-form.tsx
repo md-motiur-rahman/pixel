@@ -24,21 +24,21 @@ export function TesterForm({ grades }: { grades: Grade[] }) {
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  // ASINs data entry added for the chosen model; the tester picks one.
+  // ASINs data entry added for the chosen model AND colour; the tester picks one.
   const [asinOptions, setAsinOptions] = useState<string[]>([]);
   const [asin, setAsin] = useState("");
   const asinSeqRef = useRef(0);
 
-  async function loadAsins(modelId: string | null) {
+  async function loadAsins(modelId: string | null, forColor: string) {
     const seq = ++asinSeqRef.current;
     setAsin("");
-    if (!modelId) {
+    if (!modelId || !forColor) {
       setAsinOptions([]);
       return;
     }
     try {
-      const list = await listModelAsins(modelId);
-      if (seq !== asinSeqRef.current) return; // a newer model was picked meanwhile
+      const list = await listModelAsins(modelId, forColor);
+      if (seq !== asinSeqRef.current) return; // a newer model or colour was picked meanwhile
       setAsinOptions(list);
       if (list.length === 1) setAsin(list[0]);
     } catch {
@@ -94,14 +94,14 @@ export function TesterForm({ grades }: { grades: Grade[] }) {
           setBrand(opt);
           setModel(null);
           setModelName("");
-          void loadAsins(null);
+          void loadAsins(null, color);
         }}
         onCreateNew={(name) => {
           setBrand(null);
           setBrandName(name);
           setModel(null);
           setModelName("");
-          void loadAsins(null);
+          void loadAsins(null, color);
         }}
         search={searchBrands}
       />
@@ -114,18 +114,28 @@ export function TesterForm({ grades }: { grades: Grade[] }) {
         value={model}
         onSelect={(opt) => {
           setModel(opt);
-          void loadAsins(opt.id);
+          void loadAsins(opt.id, color);
         }}
         onCreateNew={(name) => {
           setModel(null);
           setModelName(name);
-          void loadAsins(null);
+          void loadAsins(null, color);
         }}
         search={(q) => (brand?.id ? searchModels(brand.id, q) : Promise.resolve([]))}
       />
 
+      <Field label="Color">
+        <ColorSelect
+          value={color}
+          onValueChange={(next) => {
+            setColor(next);
+            void loadAsins(model?.id ?? null, next);
+          }}
+        />
+      </Field>
+
       {asinOptions.length > 0 && (
-        <Field label="ASIN" hint="Pick the ASIN that matches this camera's model and color.">
+        <Field label="ASIN" hint="ASINs data entry added for this model in this colour.">
           <Select required value={asin} onChange={(e) => setAsin(e.target.value)} className="font-mono">
             <option value="">Select an ASIN…</option>
             {asinOptions.map((option) => (
@@ -136,10 +146,6 @@ export function TesterForm({ grades }: { grades: Grade[] }) {
           </Select>
         </Field>
       )}
-
-      <Field label="Color">
-        <ColorSelect value={color} onValueChange={setColor} />
-      </Field>
 
       <Field label="Grade">
         <Select value={gradeId} onChange={(e) => setGradeId(e.target.value)}>
