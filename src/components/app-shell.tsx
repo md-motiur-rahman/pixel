@@ -20,6 +20,9 @@ import {
   Users,
   Warehouse,
   Boxes,
+  Wrench,
+  Tag,
+  LayoutGrid,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -68,10 +71,30 @@ const WORKSPACES: Record<Exclude<Role, "admin">, NavEntry> = {
     description: "Price the cameras that were picked and add missing serials",
     icon: Boxes,
   },
+  repair: {
+    href: "/repair",
+    label: "Repair",
+    description: "Cameras graded D, waiting for repair",
+    icon: Wrench,
+  },
+  clearance: {
+    href: "/clearance",
+    label: "Clearance",
+    description: "Cameras graded E, for clearance",
+    icon: Tag,
+  },
 };
 
 // The workspaces an admin sees in the "Workspaces" group — every role's own screen.
-const ADMIN_WORKSPACE_KEYS = ["tester", "dispatcher", "checker", "data_entry", "master_stocker"] as const;
+const ADMIN_WORKSPACE_KEYS = [
+  "tester",
+  "dispatcher",
+  "checker",
+  "data_entry",
+  "master_stocker",
+  "repair",
+  "clearance",
+] as const;
 
 const ADMIN_PAGES: NavEntry[] = [
   { href: "/admin/inventory", label: "Inventory", description: "See what is in stock right now", icon: Warehouse },
@@ -90,6 +113,8 @@ const ROLE_LABEL: Record<Role, string> = {
   checker: "Checker",
   data_entry: "Data entry",
   master_stocker: "Master stocker",
+  repair: "Repair",
+  clearance: "Clearance",
 };
 
 // "Administrator", or the person's roles in a list — they can hold several.
@@ -282,14 +307,20 @@ function SidebarContent({
 type MobileTab = { href: string; label: string; icon: LucideIcon; match: (pathname: string) => boolean };
 
 // iOS-style tab bar: one tab per workspace (admins also get "Admin"), plus an
-// Account tab that opens a sheet. Short labels so five tabs fit a phone.
+// Account tab that opens a sheet. Short labels so five tabs fit a phone; when
+// someone has more than that, the extras move into a "More" sheet.
 const MOBILE_LABEL: Record<Exclude<Role, "admin">, string> = {
   tester: "Test",
   dispatcher: "Dispatch",
   checker: "Count",
   data_entry: "Entry",
   master_stocker: "Stock",
+  repair: "Repair",
+  clearance: "Clear",
 };
+
+// Tabs shown in the bar itself; any more go in the "More" sheet.
+const MAX_BAR_TABS = 4;
 
 function buildTabs(roles: Role[]): MobileTab[] {
   const tabs: MobileTab[] = workspaceKeys(roles).map((key) => ({
@@ -299,9 +330,20 @@ function buildTabs(roles: Role[]): MobileTab[] {
     match: (pathname) => isActive(WORKSPACES[key], pathname),
   }));
   if (roles.includes("admin")) {
-    tabs.push({ href: ADMIN_HOME, label: "Admin", icon: ShieldCheck, match: (p) => p.startsWith("/admin") });
+    // Admin first: it's where an admin spends most of their time.
+    tabs.unshift({ href: ADMIN_HOME, label: "Admin", icon: ShieldCheck, match: (p) => p.startsWith("/admin") });
   }
   return tabs;
+}
+
+// Splits the tabs between the bar and the "More" sheet. The tab for the current
+// page always stays in the bar, so the active highlight is never hidden.
+function splitTabs(tabs: MobileTab[], pathname: string) {
+  if (tabs.length <= MAX_BAR_TABS) return { bar: tabs, more: [] as MobileTab[] };
+  const bar = tabs.slice(0, MAX_BAR_TABS - 1);
+  const active = tabs.find((tab) => tab.match(pathname));
+  if (active && !bar.includes(active)) bar[bar.length - 1] = active;
+  return { bar, more: tabs.filter((tab) => !bar.includes(tab)) };
 }
 
 function AccountPanel({ roles, fullName }: { roles: Role[]; fullName: string | null }) {
@@ -328,7 +370,7 @@ function AccountPanel({ roles, fullName }: { roles: Role[]; fullName: string | n
 
 function MobileTabBar({ roles, fullName, pathname }: { roles: Role[]; fullName: string | null; pathname: string }) {
   const [accountOpen, setAccountOpen] = useState(false);
-  const tabs = buildTabs(roles);
+  const { bar: tabs, more } = splitTabs(buildTabs(roles), pathname);
 
   const itemClass = (active: boolean) =>
     cn(
@@ -373,7 +415,7 @@ function MobileTabBar({ roles, fullName, pathname }: { roles: Role[]; fullName: 
       <Dialog.Root open={accountOpen} onOpenChange={setAccountOpen}>
         <Dialog.Trigger asChild>
           <button type="button" className={itemClass(accountOpen)}>
-            {inner(CircleUser, "Account", accountOpen)}
+            {more.length > 0 ? inner(LayoutGrid, "More", accountOpen) : inner(CircleUser, "Account", accountOpen)}
           </button>
         </Dialog.Trigger>
         <Dialog.Portal>
@@ -384,8 +426,23 @@ function MobileTabBar({ roles, fullName, pathname }: { roles: Role[]; fullName: 
           >
             <span aria-hidden="true" className="mx-auto mb-3 block h-1 w-10 rounded-full bg-line" />
             <VisuallyHidden.Root>
-              <Dialog.Title>Account</Dialog.Title>
+              <Dialog.Title>{more.length > 0 ? "More" : "Account"}</Dialog.Title>
             </VisuallyHidden.Root>
+            {more.length > 0 && (
+              <nav aria-label="More workspaces" className="mb-3 grid grid-cols-3 gap-2">
+                {more.map(({ href, label, icon: Icon }) => (
+                  <Link
+                    key={href}
+                    href={href}
+                    onClick={() => setAccountOpen(false)}
+                    className="flex flex-col items-center gap-1 rounded-2xl border border-line-soft bg-glass-soft px-2 py-3 text-xs font-medium text-fg-muted outline-none transition-colors hover:bg-glass-hover hover:text-fg focus-visible:ring-2 focus-visible:ring-accent/60"
+                  >
+                    <Icon aria-hidden="true" className="size-5" />
+                    {label}
+                  </Link>
+                ))}
+              </nav>
+            )}
             <AccountPanel roles={roles} fullName={fullName} />
           </Dialog.Content>
         </Dialog.Portal>

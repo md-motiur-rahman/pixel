@@ -6,6 +6,7 @@ import { Dialog, VisuallyHidden } from "radix-ui";
 import { ChevronLeft, ChevronRight, Eraser, Pencil, Plus, Search, SlidersHorizontal, Trash2, X } from "lucide-react";
 import { Button, Card, Field, Input, Message, Select } from "@/components/ui";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { ConfirmPasswordField } from "@/components/confirm-password-field";
 import { ColorPill } from "@/components/color-pill";
 import { CAMERA_COLORS, findColor } from "@/lib/colors";
 import { cn } from "@/lib/cn";
@@ -69,7 +70,12 @@ export function InventoryTable({ initialRows, grades }: { initialRows: Inventory
     setFilters((current) => ({ ...current, ...patch }));
     setPage(0);
   };
+  // While a password dialog is open nobody is typing in the search box — but
+  // Chrome's password manager may drop the saved email into it, which filtered the
+  // whole table down to "No matches" until a reload. Ignore any change then.
+  const passwordDialogOpen = emptying || zeroing || deletingRow !== null;
   const updateQuery = (next: string) => {
+    if (passwordDialogOpen) return;
     setQuery(next);
     setPage(0);
   };
@@ -191,7 +197,10 @@ export function InventoryTable({ initialRows, grades }: { initialRows: Inventory
             space than a filter bar needs. */}
         <div className="hidden sm:block sm:w-52">
           <Input
-            type="text"
+            type="search"
+            name="inventory-search"
+            autoComplete="off"
+            aria-label="Search inventory"
             placeholder="Search…"
             value={query}
             onChange={(e) => updateQuery(e.target.value)}
@@ -315,7 +324,9 @@ export function InventoryTable({ initialRows, grades }: { initialRows: Inventory
               <div className="space-y-4">
                 <Field label="Search">
                   <Input
-                    type="text"
+                    type="search"
+                    name="inventory-search"
+                    autoComplete="off"
                     autoFocus
                     placeholder="Brand, model, color or ASIN…"
                     value={query}
@@ -637,18 +648,13 @@ export function InventoryTable({ initialRows, grades }: { initialRows: Inventory
           if (emptyPassword) void handleEmpty();
         }}
       >
-        <Field label="Enter your password to confirm">
-          <Input
-            type="password"
-            autoComplete="current-password"
-            autoFocus
-            value={emptyPassword}
-            onChange={(e) => setEmptyPassword(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && emptyPassword && !emptyBusy) void handleEmpty();
-            }}
-          />
-        </Field>
+        <ConfirmPasswordField
+          value={emptyPassword}
+          onChange={setEmptyPassword}
+          onEnter={() => {
+            if (emptyPassword && !emptyBusy) void handleEmpty();
+          }}
+        />
       </ConfirmDialog>
 
       <ConfirmDialog
@@ -681,18 +687,13 @@ export function InventoryTable({ initialRows, grades }: { initialRows: Inventory
           if (emptyPassword) void handleZero();
         }}
       >
-        <Field label="Enter your password to confirm">
-          <Input
-            type="password"
-            autoComplete="current-password"
-            autoFocus
-            value={emptyPassword}
-            onChange={(e) => setEmptyPassword(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && emptyPassword && !emptyBusy) void handleZero();
-            }}
-          />
-        </Field>
+        <ConfirmPasswordField
+          value={emptyPassword}
+          onChange={setEmptyPassword}
+          onEnter={() => {
+            if (emptyPassword && !emptyBusy) void handleZero();
+          }}
+        />
       </ConfirmDialog>
 
       <ConfirmDialog
@@ -727,18 +728,13 @@ export function InventoryTable({ initialRows, grades }: { initialRows: Inventory
           if (deletePassword) void handleDelete();
         }}
       >
-        <Field label="Enter your password to confirm">
-          <Input
-            type="password"
-            autoComplete="current-password"
-            autoFocus
-            value={deletePassword}
-            onChange={(e) => setDeletePassword(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && deletePassword && !deleteBusy) void handleDelete();
-            }}
-          />
-        </Field>
+        <ConfirmPasswordField
+          value={deletePassword}
+          onChange={setDeletePassword}
+          onEnter={() => {
+            if (deletePassword && !deleteBusy) void handleDelete();
+          }}
+        />
       </ConfirmDialog>
     </div>
   );

@@ -6,6 +6,7 @@ import { fetchAllPages } from "@/lib/fetch-all-pages";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { validateAsins } from "@/lib/asin";
 import { verifyPassword } from "@/lib/verify-password";
+import { isInventoryGrade } from "@/lib/grades";
 
 // One row per model + colour. Its three (or more) grades sit side by side as
 // quantities, so the same model and colour is never split over several lines.
@@ -45,9 +46,19 @@ export async function listInventory(): Promise<InventoryData> {
   ]);
   if (!result.ok) return { rows: [], grades: [] };
 
-  const rows: InventoryRow[] = result.rows.map((variant) => {
+  // Repair and Clearance grades aren't inventory — they have their own pages. A
+  // model + colour that only has those grades doesn't get a row here at all.
+  const inventoryVariants = result.rows.filter((variant) =>
+    ((variant.sku_lines ?? []) as unknown as { grades: { code: string } }[]).some((line) =>
+      isInventoryGrade(line.grades.code)
+    )
+  );
+
+  const rows: InventoryRow[] = inventoryVariants.map((variant) => {
     const model = variant.models as unknown as { name: string; brands: { name: string } };
-    const lines = (variant.sku_lines ?? []) as unknown as { quantity: number; grades: { code: string } }[];
+    const lines = ((variant.sku_lines ?? []) as unknown as { quantity: number; grades: { code: string } }[]).filter(
+      (line) => isInventoryGrade(line.grades.code)
+    );
     const asins = (variant.variant_asins ?? []) as unknown as { asin: string; position: number }[];
 
     const quantities: Record<string, number> = {};
@@ -70,7 +81,7 @@ export async function listInventory(): Promise<InventoryData> {
     `${a.brand}\u0000${a.model}\u0000${a.color}`.localeCompare(`${b.brand}\u0000${b.model}\u0000${b.color}`)
   );
 
-  const grades = (gradesResult.data ?? []).map((g) => g.code);
+  const grades = (gradesResult.data ?? []).map((g) => g.code).filter(isInventoryGrade);
   // Safety net: a grade that has stock but somehow isn't in the grades list still gets a column.
   for (const row of rows) for (const code of Object.keys(row.quantities)) if (!grades.includes(code)) grades.push(code);
 

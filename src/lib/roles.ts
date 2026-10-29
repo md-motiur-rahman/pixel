@@ -3,7 +3,16 @@ import type { Role } from "@/types/database";
 
 // Canonical order: admin first, so the primary role (first in the list) is the
 // admin one for anyone who has it.
-export const ALL_ROLES: Role[] = ["admin", "tester", "dispatcher", "checker", "data_entry", "master_stocker"];
+export const ALL_ROLES: Role[] = [
+  "admin",
+  "tester",
+  "dispatcher",
+  "checker",
+  "data_entry",
+  "master_stocker",
+  "repair",
+  "clearance",
+];
 
 export const ROLE_LABEL: Record<Role, string> = {
   admin: "Admin",
@@ -12,6 +21,8 @@ export const ROLE_LABEL: Record<Role, string> = {
   checker: "Checker",
   data_entry: "Data entry",
   master_stocker: "Master stocker",
+  repair: "Repair",
+  clearance: "Clearance",
 };
 
 // Where each role lands, and the URL section it owns.
@@ -22,6 +33,8 @@ export const ROLE_HOME: Record<Role, string> = {
   checker: "/checker",
   data_entry: "/data-entry",
   master_stocker: "/master-stock",
+  repair: "/repair",
+  clearance: "/clearance",
 };
 
 export function isRole(value: unknown): value is Role {

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin-auth";
 import { toCsv } from "@/lib/csv";
 import { fetchAllPages } from "@/lib/fetch-all-pages";
+import { isInventoryGrade } from "@/lib/grades";
 
 export async function GET() {
   const admin = await requireAdmin();
@@ -18,7 +19,10 @@ export async function GET() {
   );
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: 500 });
 
-  const rows = result.rows.map((sl) => {
+  // Repair and Clearance grades aren't inventory.
+  const inventoryLines = result.rows.filter((sl) => isInventoryGrade((sl.grades as unknown as { code: string }).code));
+
+  const rows = inventoryLines.map((sl) => {
     const variant = sl.model_variants as unknown as {
       color: string;
       models: { name: string; brands: { name: string } };

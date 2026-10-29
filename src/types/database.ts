@@ -1,7 +1,15 @@
 // Hand-written to match supabase/schema.sql. Once the project is linked,
 // replace with: npx supabase gen types typescript --linked > src/types/database.ts
 
-export type Role = "admin" | "tester" | "dispatcher" | "checker" | "data_entry" | "master_stocker";
+export type Role =
+  | "admin"
+  | "tester"
+  | "dispatcher"
+  | "checker"
+  | "data_entry"
+  | "master_stocker"
+  | "repair"
+  | "clearance";
 export type UnitStatus = "in_stock" | "picked" | "shipped";
 
 type Table<Row, Insert, Update = Partial<Insert>> = {
