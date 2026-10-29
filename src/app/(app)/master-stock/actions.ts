@@ -6,8 +6,9 @@ import { fetchProfileRoles, hasRole } from "@/lib/roles";
 import { parsePrice } from "@/lib/money";
 
 // One camera a picker has picked. Brand, model, colour and serial come from the
-// camera itself; the selling price (and a missing serial) is what the master
-// stocker adds.
+// camera itself. It stays ON HOLD (still counted in stock) until the master
+// stocker saves it — that accepts it, and only then does the stock go down. They
+// can add a selling price and a missing serial while saving; both are optional.
 export type MasterStockRow = {
   unitId: string;
   brand: string;
@@ -19,27 +20,30 @@ export type MasterStockRow = {
   note: string | null;
   pickedAt: string;
   pickedByName: string | null;
-  /** Null until the master stocker has priced it. */
+  /** Null when no selling price has been entered. */
   sellingPrice: number | null;
+  /** False while the camera is on hold, waiting for the master stocker. */
+  accepted: boolean;
 };
 
+/** "todo" = waiting (on hold), "done" = accepted. */
 export type MasterStockFilter = "todo" | "done" | "all";
 
 export type MasterStockList =
   | { ok: true; rows: MasterStockRow[]; todoCount: number; limited: boolean }
   | { ok: false; error: string };
 
-// Plenty for a working day, and keeps the page quick when the "done" history
+// Plenty for a working day, and keeps the page quick when the accepted history
 // grows. The newest are always the ones shown.
 const PAGE_LIMIT = 300;
 
-const SELECT = `unit_id, picked_at, selling_price,
+const SELECT = `unit_id, picked_at, selling_price, accepted_at,
   picker:profiles!master_stock_picked_by_fkey ( full_name ),
   units!inner ( serial_number, note,
     sku_lines!inner ( grades ( code ), model_variants!inner ( color, models!inner ( name, brands!inner ( name ) ) ) ) )`;
 
-// Master stockers and admins only. The database enforces the same rule (row level
-// security) — this check just gives a clear message.
+// Master stockers and admins only. The database enforces the same rule — this
+// check just gives a clear message.
 async function requireMasterStocker() {
   const supabase = await createClient();
   const user = await getAuthUser(supabase);
@@ -52,9 +56,13 @@ async function requireMasterStocker() {
 }
 
 function setupHint(code: string | undefined, message: string) {
-  // PGRST205 / 42P01: the master_stock table doesn't exist; 42883 / PGRST202: the function doesn't.
+  // PGRST205 / 42P01: the table doesn't exist. 42883 / PGRST202: a function doesn't.
+  // 42703 / PGRST204: a column (accepted_at) doesn't.
   if (code === "PGRST205" || code === "42P01" || code === "42883" || code === "PGRST202") {
-    return "Master stock needs a database update — run supabase/migration_9_multi_role_master_stock.sql in Supabase.";
+    return "Master stock needs a database update — run supabase/migration_9_multi_role_master_stock.sql and then migration_10_master_stock_hold.sql in Supabase.";
+  }
+  if (code === "42703" || code === "PGRST204") {
+    return "Master stock needs a database update — run supabase/migration_10_master_stock_hold.sql in Supabase.";
   }
   return message;
 }
@@ -63,6 +71,7 @@ type RawRow = {
   unit_id: string;
   picked_at: string;
   selling_price: number | null;
+  accepted_at: string | null;
   picker: unknown;
   units: unknown;
 };
@@ -90,6 +99,7 @@ function toRow(raw: RawRow): MasterStockRow {
     pickedByName: picker?.full_name ?? null,
     // numeric columns can arrive as strings depending on the driver; always hand back a number.
     sellingPrice: raw.selling_price === null ? null : Number(raw.selling_price),
+    accepted: raw.accepted_at !== null,
   };
 }
 
@@ -99,12 +109,12 @@ export async function listMasterStock(filter: MasterStockFilter): Promise<Master
   const { supabase } = auth;
 
   let query = supabase.from("master_stock").select(SELECT).order("picked_at", { ascending: false }).limit(PAGE_LIMIT + 1);
-  if (filter === "todo") query = query.is("selling_price", null);
-  if (filter === "done") query = query.not("selling_price", "is", null);
+  if (filter === "todo") query = query.is("accepted_at", null);
+  if (filter === "done") query = query.not("accepted_at", "is", null);
 
-  const [list, todo] = await Promise.all([
+  const [list, waiting] = await Promise.all([
     query,
-    supabase.from("master_stock").select("unit_id", { count: "exact", head: true }).is("selling_price", null),
+    supabase.from("master_stock").select("unit_id", { count: "exact", head: true }).is("accepted_at", null),
   ]);
   if (list.error) return { ok: false, error: setupHint(list.error.code, list.error.message) };
 
@@ -112,7 +122,7 @@ export async function listMasterStock(filter: MasterStockFilter): Promise<Master
   return {
     ok: true,
     rows: raw.slice(0, PAGE_LIMIT).map(toRow),
-    todoCount: todo.count ?? 0,
+    todoCount: waiting.count ?? 0,
     limited: raw.length > PAGE_LIMIT,
   };
 }
@@ -121,6 +131,9 @@ export type SaveMasterStockResult =
   | { ok: true; sellingPrice: number | null; serialNumber: string | null }
   | { ok: false; error: string };
 
+// Saving accepts the camera (taking it out of stock). Price and serial are both
+// optional: a blank price keeps whatever price was there, but anything typed must
+// be a real amount.
 export async function saveMasterStockDetails(
   unitId: string,
   sellingPrice: string,
@@ -130,8 +143,6 @@ export async function saveMasterStockDetails(
   if (!auth.ok) return auth;
   const { supabase } = auth;
 
-  // Both are optional: a blank price leaves the stored one as it is, but anything
-  // typed must be a real amount.
   let price: number | null = null;
   if (sellingPrice.trim()) {
     const parsed = parsePrice(sellingPrice, "selling price");
@@ -139,7 +150,6 @@ export async function saveMasterStockDetails(
     price = parsed.value;
   }
   const serial = serialNumber.trim();
-  if (price === null && !serial) return { ok: false, error: "Enter a selling price or a serial number to save." };
 
   const { error } = await supabase.rpc("set_master_stock_details", {
     p_unit_id: unitId,
@@ -164,4 +174,15 @@ export async function saveMasterStockDetails(
     sellingPrice: stock?.selling_price == null ? null : Number(stock.selling_price),
     serialNumber: unit?.serial_number ?? null,
   };
+}
+
+// Refusing sends the camera back to stock, exactly like undoing the pick: it
+// leaves this list and its quantity goes back up.
+export async function refuseMasterStock(unitId: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const auth = await requireMasterStocker();
+  if (!auth.ok) return auth;
+
+  const { error } = await auth.supabase.rpc("refuse_master_stock", { p_unit_id: unitId });
+  if (error) return { ok: false, error: setupHint(error.code, error.message) };
+  return { ok: true };
 }

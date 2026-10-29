@@ -80,13 +80,15 @@ Internal webapp for testing, dispatching, and stock-counting camera inventory.
 - **Buying price** — the tester also enters what the camera cost (stored on the unit),
   so profit and loss can be worked out later.
 - **Master stocker** (`/master-stock`) sees every camera a dispatcher has picked
-  (brand, model, colour, serial if it has one). The database adds the row the moment a
-  camera is picked, and removes it if the pick is undone. The master stocker enters
-  the **selling price** and, when a camera has no serial number, adds one.
+  (brand, model, colour, serial if it has one). A picked camera is **on hold** — it
+  still counts in stock — until the master stocker **saves** it (selling price and a
+  missing serial are both optional); only then does the stock go down. **Refusing** it
+  (after a confirmation) puts it back in stock and takes it off the list.
 - **Several roles per person** — an admin ticks as many roles as someone needs on the
   Staff page; they then get every one of those screens. Admin counts as all roles.
 
-Run `supabase/migration_9_multi_role_master_stock.sql` in the Supabase SQL editor
+Run `supabase/migration_9_multi_role_master_stock.sql` and then
+`supabase/migration_10_master_stock_hold.sql` in the Supabase SQL editor
 **before** deploying code that includes these features.
 
 ### Scanning: handheld scanner or phone camera

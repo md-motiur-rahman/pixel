@@ -1,13 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { Check } from "lucide-react";
+import { Check, Undo2 } from "lucide-react";
 import { Badge, Button, Card, Field, Input, Message } from "@/components/ui";
 import { ColorPill } from "@/components/color-pill";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { SerialInput } from "@/components/serial-input";
 import { cn } from "@/lib/cn";
 import {
   listMasterStock,
+  refuseMasterStock,
   saveMasterStockDetails,
   type MasterStockFilter,
   type MasterStockList,
@@ -19,8 +21,8 @@ import {
 const POLL_MS = 8000;
 
 const FILTERS: { value: MasterStockFilter; label: string }[] = [
-  { value: "todo", label: "To price" },
-  { value: "done", label: "Priced" },
+  { value: "todo", label: "Waiting" },
+  { value: "done", label: "Accepted" },
   { value: "all", label: "All" },
 ];
 
@@ -41,20 +43,25 @@ function pickedLabel(row: MasterStockRow) {
 function MasterStockItem({
   row,
   onSaved,
+  onRefused,
 }: {
   row: MasterStockRow;
   onSaved: (unitId: string, saved: { sellingPrice: number | null; serialNumber: string | null }) => void;
+  onRefused: (unitId: string) => void;
 }) {
   const [price, setPrice] = useState(priceText(row.sellingPrice));
   const [serial, setSerial] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [justSaved, setJustSaved] = useState(false);
+  const [refusing, setRefusing] = useState(false);
+  const [refuseBusy, setRefuseBusy] = useState(false);
+  const [refuseError, setRefuseError] = useState<string | null>(null);
 
   // A serial already on the camera stays as it is; only a missing one can be filled in here.
   const hasSerial = row.serialNumber !== null;
-  const priced = row.sellingPrice !== null;
-  // Price and serial are both optional — Save is offered once either has something new.
+  // Price and serial are optional. A camera on hold can always be saved (that
+  // accepts it); once accepted, Save is only offered when something new is typed.
   const priceChanged = price.trim() !== "" && price.trim() !== priceText(row.sellingPrice);
   const dirty = priceChanged || (!hasSerial && serial.trim() !== "");
 
@@ -80,6 +87,24 @@ function MasterStockItem({
     }
   }
 
+  async function handleRefuse() {
+    setRefuseBusy(true);
+    setRefuseError(null);
+    try {
+      const result = await refuseMasterStock(row.unitId);
+      if (!result.ok) {
+        setRefuseError(result.error);
+        return;
+      }
+      setRefusing(false);
+      onRefused(row.unitId);
+    } catch {
+      setRefuseError("Could not return it — check your connection and try again.");
+    } finally {
+      setRefuseBusy(false);
+    }
+  }
+
   return (
     <li>
       <Card className="p-4 sm:p-5">
@@ -91,7 +116,8 @@ function MasterStockItem({
             <div className="mt-1.5 flex flex-wrap items-center gap-2">
               <ColorPill color={row.color} />
               <Badge>Grade {row.grade}</Badge>
-              {priced ? <Badge tone="success">Priced</Badge> : <Badge tone="warning">To price</Badge>}
+              {row.accepted ? <Badge tone="success">Accepted</Badge> : <Badge tone="warning">On hold</Badge>}
+              {row.sellingPrice !== null && <Badge>£{row.sellingPrice.toFixed(2)}</Badge>}
             </div>
           </div>
           <p className="text-xs text-fg-subtle" suppressHydrationWarning>
@@ -100,14 +126,14 @@ function MasterStockItem({
         </div>
         {row.note && <p className="mt-2 text-xs text-fg-muted">Note: {row.note}</p>}
 
-        <form onSubmit={handleSave} className="mt-4 grid gap-3 sm:grid-cols-[1fr_11rem_auto] sm:items-end">
+        <form onSubmit={handleSave} className="mt-4 grid gap-3 sm:grid-cols-[1fr_11rem] sm:items-end">
           {hasSerial ? (
             <div>
               <p className="mb-1.5 text-sm font-medium text-fg">Serial number</p>
               <p className="flex min-h-11 items-center font-mono text-sm text-fg">{row.serialNumber}</p>
             </div>
           ) : (
-            <Field label="Serial number" hint="This camera has none yet — add it if you have it.">
+            <Field label="Serial number" hint="Optional — this camera has none yet.">
               <SerialInput value={serial} onValueChange={setSerial} placeholder="Optional" />
             </Field>
           )}
@@ -126,9 +152,23 @@ function MasterStockItem({
             />
           </Field>
 
-          <Button type="submit" disabled={saving || !dirty} className="w-full sm:w-auto">
-            {saving ? "Saving…" : priced ? "Update" : "Save"}
-          </Button>
+          <div className="flex flex-col-reverse gap-2 sm:col-span-2 sm:flex-row sm:justify-end">
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={saving || refuseBusy}
+              onClick={() => {
+                setRefuseError(null);
+                setRefusing(true);
+              }}
+            >
+              <Undo2 aria-hidden="true" />
+              Refuse &amp; return to stock
+            </Button>
+            <Button type="submit" disabled={saving || refuseBusy || (row.accepted && !dirty)}>
+              {saving ? "Saving…" : row.accepted ? "Update" : "Save & accept"}
+            </Button>
+          </div>
         </form>
 
         {error && (
@@ -143,6 +183,34 @@ function MasterStockItem({
           </p>
         )}
       </Card>
+
+      <ConfirmDialog
+        open={refusing}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRefusing(false);
+            setRefuseError(null);
+          }
+        }}
+        title="Refuse this camera?"
+        description={
+          <>
+            <p className="font-medium text-fg">
+              {row.brand} {row.model} · {row.color} · Grade {row.grade}
+              {row.serialNumber ? ` · SN ${row.serialNumber}` : ""}
+            </p>
+            <p>
+              It goes back into the inventory as in stock, its quantity is added back, and it leaves this list. Any
+              selling price entered here is dropped.
+            </p>
+          </>
+        }
+        confirmLabel="Refuse & return"
+        destructive
+        busy={refuseBusy}
+        error={refuseError}
+        onConfirm={() => void handleRefuse()}
+      />
     </li>
   );
 }
@@ -151,6 +219,7 @@ export function MasterStockScreen({ initial }: { initial: MasterStockList }) {
   const [filter, setFilter] = useState<MasterStockFilter>("todo");
   const [data, setData] = useState<MasterStockList>(initial);
   const [query, setQuery] = useState("");
+  const [notice, setNotice] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   // The timer below reads the current tab from here, so it never uses a stale one.
   const filterRef = useRef(filter);
@@ -160,6 +229,7 @@ export function MasterStockScreen({ initial }: { initial: MasterStockList }) {
 
   function load(next: MasterStockFilter) {
     setFilter(next);
+    setNotice(null);
     startTransition(async () => {
       try {
         setData(await listMasterStock(next));
@@ -180,13 +250,13 @@ export function MasterStockScreen({ initial }: { initial: MasterStockList }) {
       if (!latest.ok || filterRef.current !== requested) return;
       setData((current) => {
         if (!current.ok) return latest;
-        // On "To price", a camera priced a moment ago is no longer in the server's
+        // On "Waiting", a camera accepted a moment ago is no longer in the server's
         // list. Keep it on screen (with its "Saved" tick) until the tab is changed,
         // rather than having it vanish under the person's cursor.
         const fresh = new Set(latest.rows.map((row) => row.unitId));
-        const justPriced =
-          requested === "todo" ? current.rows.filter((row) => row.sellingPrice !== null && !fresh.has(row.unitId)) : [];
-        const rows = [...latest.rows, ...justPriced].sort((a, b) => b.pickedAt.localeCompare(a.pickedAt));
+        const justAccepted =
+          requested === "todo" ? current.rows.filter((row) => row.accepted && !fresh.has(row.unitId)) : [];
+        const rows = [...latest.rows, ...justAccepted].sort((a, b) => b.pickedAt.localeCompare(a.pickedAt));
         return { ...latest, rows };
       });
     } catch {
@@ -211,14 +281,28 @@ export function MasterStockScreen({ initial }: { initial: MasterStockList }) {
   function handleSaved(unitId: string, saved: { sellingPrice: number | null; serialNumber: string | null }) {
     setData((current) => {
       if (!current.ok) return current;
-      const wasUnpriced = current.rows.find((row) => row.unitId === unitId)?.sellingPrice === null;
-      const nowPriced = saved.sellingPrice !== null;
+      const wasWaiting = current.rows.find((row) => row.unitId === unitId)?.accepted === false;
       return {
         ...current,
-        todoCount: wasUnpriced && nowPriced ? Math.max(0, current.todoCount - 1) : current.todoCount,
+        todoCount: wasWaiting ? Math.max(0, current.todoCount - 1) : current.todoCount,
         rows: current.rows.map((row) =>
-          row.unitId === unitId ? { ...row, sellingPrice: saved.sellingPrice, serialNumber: saved.serialNumber } : row
+          row.unitId === unitId
+            ? { ...row, accepted: true, sellingPrice: saved.sellingPrice, serialNumber: saved.serialNumber }
+            : row
         ),
+      };
+    });
+  }
+
+  function handleRefused(unitId: string) {
+    setData((current) => {
+      if (!current.ok) return current;
+      const refused = current.rows.find((row) => row.unitId === unitId);
+      if (refused) setNotice(`${refused.brand} ${refused.model} returned to stock.`);
+      return {
+        ...current,
+        todoCount: refused && !refused.accepted ? Math.max(0, current.todoCount - 1) : current.todoCount,
+        rows: current.rows.filter((row) => row.unitId !== unitId),
       };
     });
   }
@@ -237,8 +321,8 @@ export function MasterStockScreen({ initial }: { initial: MasterStockList }) {
       <div>
         <h1 className="text-lg font-semibold text-fg">Master stock</h1>
         <p className="mt-0.5 text-sm text-fg-muted">
-          Every camera a picker has picked lands here. Add its selling price — and its serial number if it doesn&rsquo;t
-          have one yet.
+          Every camera a picker picks waits here on hold — it still counts in stock. Save it to accept it (price and
+          serial are optional); only then does the stock go down. Refuse it to send it back to the inventory.
         </p>
       </div>
 
@@ -284,13 +368,14 @@ export function MasterStockScreen({ initial }: { initial: MasterStockList }) {
         </div>
       </div>
 
+      {notice && <Message variant="success">{notice}</Message>}
       {!data.ok && <Message variant="error">{data.error}</Message>}
 
       {data.ok && (
         <>
           <ul className={cn("space-y-3", isPending && "opacity-60")}>
             {rows.map((row) => (
-              <MasterStockItem key={row.unitId} row={row} onSaved={handleSaved} />
+              <MasterStockItem key={row.unitId} row={row} onSaved={handleSaved} onRefused={handleRefused} />
             ))}
           </ul>
 
@@ -299,7 +384,7 @@ export function MasterStockScreen({ initial }: { initial: MasterStockList }) {
               {query
                 ? "No matches."
                 : filter === "todo"
-                  ? "Nothing waiting — every picked camera has a selling price."
+                  ? "Nothing waiting — every picked camera has been accepted or returned."
                   : "No picked cameras yet."}
             </Card>
           )}

@@ -171,3 +171,40 @@ export async function zeroInventory(
   revalidatePath("/admin/inventory");
   return { ok: true, lines: data };
 }
+
+export type DeleteEntryResult =
+  | { ok: true; cameras: number; modelRemoved: boolean; brandRemoved: boolean }
+  | { ok: false; error: string };
+
+// Deletes one model + colour added by mistake, with its in-stock cameras (password
+// required). The database refuses if any of its cameras were picked or shipped.
+export async function deleteInventoryEntry(variantId: string, password: string): Promise<DeleteEntryResult> {
+  const admin = await requireAdmin();
+  if (!admin.ok) return { ok: false, error: admin.error };
+
+  const confirmed = await confirmAdminPassword(admin, password);
+  if (!confirmed.ok) return confirmed;
+
+  const { data, error } = await createAdminClient().rpc("delete_inventory_entry", {
+    p_admin_id: admin.userId,
+    p_variant_id: variantId,
+  });
+  if (error) {
+    if (error.code === "PGRST202") {
+      return {
+        ok: false,
+        error: "Deleting entries needs a database update — run supabase/migration_11_delete_inventory_entry.sql in Supabase.",
+      };
+    }
+    return { ok: false, error: error.message };
+  }
+
+  const result = data as { cameras: number; model_removed: boolean; brand_removed: boolean };
+  revalidatePath("/admin/inventory");
+  return {
+    ok: true,
+    cameras: result.cameras,
+    modelRemoved: result.model_removed,
+    brandRemoved: result.brand_removed,
+  };
+}

@@ -98,6 +98,9 @@ export interface Database {
           selling_price: number | null;
           priced_by: string | null;
           priced_at: string | null;
+          /** Null while the camera is on hold, waiting for the master stocker. */
+          accepted_at: string | null;
+          accepted_by: string | null;
         },
         Record<string, never>,
         Record<string, never>
@@ -164,7 +167,12 @@ export interface Database {
         Args: { p_unit_id: string; p_selling_price?: number | null; p_serial?: string | null };
         Returns: undefined;
       };
+      refuse_master_stock: { Args: { p_unit_id: string }; Returns: undefined };
       empty_inventory: { Args: { p_admin_id: string }; Returns: number };
+      delete_inventory_entry: {
+        Args: { p_admin_id: string; p_variant_id: string };
+        Returns: { cameras: number; model_removed: boolean; brand_removed: boolean };
+      };
       zero_inventory: { Args: { p_admin_id: string }; Returns: number };
       resolve_stock_count_line: {
         Args: { p_stock_count_id: string; p_sku_line_id: string; p_expected_quantity: number };

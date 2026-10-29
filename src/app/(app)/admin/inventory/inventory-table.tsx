@@ -9,7 +9,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ColorPill } from "@/components/color-pill";
 import { CAMERA_COLORS, findColor } from "@/lib/colors";
 import { cn } from "@/lib/cn";
-import { emptyInventory, zeroInventory, type InventoryData, type InventoryRow } from "./actions";
+import { deleteInventoryEntry, emptyInventory, zeroInventory, type InventoryData, type InventoryRow } from "./actions";
 import { AsinDialog } from "./asin-dialog";
 
 type StockFilter = "all" | "in" | "out";
@@ -41,6 +41,11 @@ export function InventoryTable({ initialRows, grades }: { initialRows: Inventory
   const [emptyPassword, setEmptyPassword] = useState("");
   const [emptyBusy, setEmptyBusy] = useState(false);
   const [emptyError, setEmptyError] = useState<string | null>(null);
+  // Deleting one model + colour entered by mistake (password required).
+  const [deletingRow, setDeletingRow] = useState<InventoryRow | null>(null);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const missingCount = useMemo(() => initialRows.filter((row) => row.asins.length === 0).length, [initialRows]);
   const brandOptions = useMemo(
@@ -131,6 +136,32 @@ export function InventoryTable({ initialRows, grades }: { initialRows: Inventory
   );
   const rangeStart = filtered.length === 0 ? 0 : safePage * pageSize + 1;
   const rangeEnd = Math.min(filtered.length, safePage * pageSize + pageSize);
+
+  async function handleDelete() {
+    if (!deletingRow) return;
+    setDeleteBusy(true);
+    setDeleteError(null);
+    try {
+      const result = await deleteInventoryEntry(deletingRow.variantId, deletePassword);
+      if (!result.ok) {
+        setDeleteError(result.error);
+        return;
+      }
+      const removed = [
+        `${result.cameras} camera record${result.cameras === 1 ? "" : "s"}`,
+        result.modelRemoved ? "the model" : null,
+        result.brandRemoved ? "the brand" : null,
+      ].filter(Boolean);
+      setNotice(`Deleted ${rowName(deletingRow)} — removed ${removed.join(", ")}.`);
+      setDeletingRow(null);
+      setDeletePassword("");
+      router.refresh();
+    } catch {
+      setDeleteError("Could not delete — check your connection and try again.");
+    } finally {
+      setDeleteBusy(false);
+    }
+  }
 
   async function handleEmpty() {
     setEmptyBusy(true);
@@ -411,6 +442,9 @@ export function InventoryTable({ initialRows, grades }: { initialRows: Inventory
                   </th>
                 ))}
                 <th className="px-3.5 py-2.5 font-medium">ASIN</th>
+                <th className="w-12 px-2 py-2.5">
+                  <span className="sr-only">Delete</span>
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line-soft">
@@ -480,11 +514,29 @@ export function InventoryTable({ initialRows, grades }: { initialRows: Inventory
                       </div>
                     )}
                   </td>
+                  <td className="px-2 py-2 text-right">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setNotice(null);
+                        setDeletePassword("");
+                        setDeleteError(null);
+                        setDeletingRow(row);
+                      }}
+                      aria-label={`Delete ${rowName(row)}`}
+                      title="Delete this entry"
+                      className="min-h-8 px-2 text-fg-subtle hover:text-danger"
+                    >
+                      <Trash2 aria-hidden="true" />
+                    </Button>
+                  </td>
                 </tr>
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={4 + grades.length} className="px-3.5 py-8 text-center text-fg-subtle">
+                  <td colSpan={5 + grades.length} className="px-3.5 py-8 text-center text-fg-subtle">
                     {query || activeFilters > 0 ? "No matches." : "No inventory yet."}
                   </td>
                 </tr>
@@ -638,6 +690,52 @@ export function InventoryTable({ initialRows, grades }: { initialRows: Inventory
             onChange={(e) => setEmptyPassword(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter" && emptyPassword && !emptyBusy) void handleZero();
+            }}
+          />
+        </Field>
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={deletingRow !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeletingRow(null);
+            setDeletePassword("");
+            setDeleteError(null);
+          }
+        }}
+        title="Delete this entry?"
+        description={
+          deletingRow && (
+            <>
+              <p className="font-medium text-danger">
+                {rowName(deletingRow)} — all grades, with its {totalOf(deletingRow)} in-stock camera
+                {totalOf(deletingRow) === 1 ? "" : "s"}. This can&rsquo;t be undone.
+              </p>
+              <p>
+                Use this for something added by mistake. The model (and brand) are removed too if nothing else uses
+                them. If any of its cameras were already picked or shipped, it won&rsquo;t be deleted.
+              </p>
+            </>
+          )
+        }
+        confirmLabel="Delete entry"
+        destructive
+        busy={deleteBusy}
+        error={deleteError}
+        onConfirm={() => {
+          if (deletePassword) void handleDelete();
+        }}
+      >
+        <Field label="Enter your password to confirm">
+          <Input
+            type="password"
+            autoComplete="current-password"
+            autoFocus
+            value={deletePassword}
+            onChange={(e) => setDeletePassword(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && deletePassword && !deleteBusy) void handleDelete();
             }}
           />
         </Field>
