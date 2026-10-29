@@ -105,7 +105,7 @@ export async function recordScan(
   // would make Postgres throw a cast error, which reads as a retriable failure
   // and would jam the offline queue. It can never succeed, so reject it for good.
   if (!looksLikeUuid(unitId)) {
-    return { ok: false, error: "That isn't one of our camera QR codes.", permanent: true };
+    return { ok: false, error: "That isn't one of our item QR codes.", permanent: true };
   }
   const supabase = await createClient();
 
@@ -115,7 +115,7 @@ export async function recordScan(
     .eq("id", unitId)
     .maybeSingle();
   if (unitError) return { ok: false, error: unitError.message };
-  if (!unit) return { ok: false, error: "No camera found for that QR code.", permanent: true };
+  if (!unit) return { ok: false, error: "No item found for that QR code.", permanent: true };
 
   // Enforced server-side, not just by disabling the UI while finishing —
   // a scan already in flight (or replayed from the offline queue) could
@@ -163,7 +163,7 @@ export async function finishStockCount(stockCountId: string): Promise<ActionResu
   return { ok: true };
 }
 
-// Resolve one line's difference: scanned cameras recorded as picked/shipped go
+// Resolve one line's difference: scanned items recorded as picked/shipped go
 // back in stock, and the system figure is set to what was physically scanned.
 // `expectedSystemQty` is what the checker saw and confirmed; the database
 // refuses if the stock has moved since. See migration_4.

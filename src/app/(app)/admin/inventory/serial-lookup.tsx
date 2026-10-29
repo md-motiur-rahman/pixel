@@ -10,7 +10,7 @@ import { CameraScanButton } from "@/components/camera-scan-button";
 import { ColorPill } from "@/components/color-pill";
 import { Badge, Button, Message } from "@/components/ui";
 
-// Find one exact camera by its (unique) serial number or QR, then reprint its label.
+// Find one exact item by its (unique) serial number or QR, then reprint its label.
 export function SerialLookup() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -121,7 +121,7 @@ export function SerialLookup() {
       <Dialog.Trigger asChild>
         <Button type="button" variant="secondary">
           <Search aria-hidden="true" />
-          Find a camera
+          Find an item
         </Button>
       </Dialog.Trigger>
       <Dialog.Portal>
@@ -129,9 +129,9 @@ export function SerialLookup() {
         <Dialog.Content className="glass-strong fixed top-1/2 left-1/2 z-50 w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-3xl p-6 outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in data-[state=open]:zoom-in-95">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <Dialog.Title className="text-base font-semibold text-fg">Find a camera by serial number</Dialog.Title>
+              <Dialog.Title className="text-base font-semibold text-fg">Find an item by serial number</Dialog.Title>
               <Dialog.Description className="mt-1 text-sm text-fg-muted">
-                Look up one exact camera to reprint its QR label.
+                Look up one exact item to reprint its QR label.
               </Dialog.Description>
             </div>
             <Dialog.Close asChild>

@@ -20,7 +20,7 @@ export function ColorSelect({
   id?: string;
   disabled?: boolean;
 }) {
-  // A saved camera can carry an older, free-typed colour that isn't in the list —
+  // A saved item can carry an older, free-typed colour that isn't in the list —
   // keep it selectable so opening and re-saving doesn't silently change it.
   const legacy = value && !findColor(value) ? value : null;
   const selected = findColor(value)?.name ?? value;

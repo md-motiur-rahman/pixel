@@ -44,7 +44,7 @@ begin
     join sku_lines sl on sl.id = u.sku_line_id
     where sl.model_variant_id = p_variant_id and u.status <> 'in_stock'
   ) then
-    raise exception 'Some cameras of this model and colour have already been picked or shipped, so it can''t be deleted. Move those cameras to the right model first (Tester → Find a saved camera).';
+    raise exception 'Some items of this model and colour have already been picked or shipped, so it can''t be deleted. Move those items to the right model first (Tester → Find a saved item).';
   end if;
 
   delete from stock_count_scans

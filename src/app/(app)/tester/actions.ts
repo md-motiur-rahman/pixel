@@ -16,7 +16,7 @@ export type CreateTestedUnitInput = {
   gradeId: string;
   serialNumber: string;
   note: string;
-  /** What the camera cost, as typed. Optional for now — blank saves no price. */
+  /** What the item cost, as typed. Optional for now — blank saves no price. */
   buyingPrice: string;
   /** One of the model's ASINs (from data entry), picked from the dropdown. */
   asin?: string;
@@ -55,7 +55,7 @@ export async function createTestedUnit(
 
   // 0. Serial first (when there is one) — a duplicate would otherwise only fail at
   //    the very end, after a new brand/model/color had already been created for nothing.
-  //    A serial number is optional: the camera is identified by its own id.
+  //    A serial number is optional: the item is identified by its own id.
   if (serialNumber) {
     const { data: serialRows, error: serialCheckError } = await supabase
       .from("units")
@@ -144,7 +144,7 @@ export async function createTestedUnit(
     if (asinError) return { ok: false, error: `Could not save the ASIN: ${asinError.message}` };
   }
 
-  // 5. Unit — the physical camera being tested right now.
+  // 5. Unit — the physical item being tested right now.
   const { data: unit, error: unitError } = await supabase
     .from("units")
     .insert({

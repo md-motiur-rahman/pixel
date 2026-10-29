@@ -1,4 +1,4 @@
-// Grades that are not inventory. Cameras with these grades are kept off the
+// Grades that are not inventory. Items with these grades are kept off the
 // Inventory page (and its totals and CSV) and listed on their own pages instead.
 // Keep in step with grades.in_inventory (supabase/migration_12_repair_clearance_grades.sql).
 export const REPAIR_GRADE = "D";

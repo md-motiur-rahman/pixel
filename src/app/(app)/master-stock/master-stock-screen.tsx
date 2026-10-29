@@ -16,7 +16,7 @@ import {
   type MasterStockRow,
 } from "./actions";
 
-// How often the open page checks for newly picked cameras (it also checks the
+// How often the open page checks for newly picked items (it also checks the
 // moment the tab comes back into view).
 const POLL_MS = 8000;
 
@@ -58,9 +58,9 @@ function MasterStockItem({
   const [refuseBusy, setRefuseBusy] = useState(false);
   const [refuseError, setRefuseError] = useState<string | null>(null);
 
-  // A serial already on the camera stays as it is; only a missing one can be filled in here.
+  // A serial already on the item stays as it is; only a missing one can be filled in here.
   const hasSerial = row.serialNumber !== null;
-  // Price and serial are optional. A camera on hold can always be saved (that
+  // Price and serial are optional. An item on hold can always be saved (that
   // accepts it); once accepted, Save is only offered when something new is typed.
   const priceChanged = price.trim() !== "" && price.trim() !== priceText(row.sellingPrice);
   const dirty = priceChanged || (!hasSerial && serial.trim() !== "");
@@ -133,7 +133,7 @@ function MasterStockItem({
               <p className="flex min-h-11 items-center font-mono text-sm text-fg">{row.serialNumber}</p>
             </div>
           ) : (
-            <Field label="Serial number" hint="Optional — this camera has none yet.">
+            <Field label="Serial number" hint="Optional — this item has none yet.">
               <SerialInput value={serial} onValueChange={setSerial} placeholder="Optional" />
             </Field>
           )}
@@ -192,7 +192,7 @@ function MasterStockItem({
             setRefuseError(null);
           }
         }}
-        title="Refuse this camera?"
+        title="Refuse this item?"
         description={
           <>
             <p className="font-medium text-fg">
@@ -239,7 +239,7 @@ export function MasterStockScreen({ initial }: { initial: MasterStockList }) {
     });
   }
 
-  // Picks show up here without a reload: the database adds a camera to master stock
+  // Picks show up here without a reload: the database adds an item to master stock
   // the instant it's picked, and this re-reads the list on a timer and when the tab
   // is shown again. A failed check (e.g. a dropped connection) just keeps what's on
   // screen — it never replaces the list with an error.
@@ -250,7 +250,7 @@ export function MasterStockScreen({ initial }: { initial: MasterStockList }) {
       if (!latest.ok || filterRef.current !== requested) return;
       setData((current) => {
         if (!current.ok) return latest;
-        // On "Waiting", a camera accepted a moment ago is no longer in the server's
+        // On "Waiting", an item accepted a moment ago is no longer in the server's
         // list. Keep it on screen (with its "Saved" tick) until the tab is changed,
         // rather than having it vanish under the person's cursor.
         const fresh = new Set(latest.rows.map((row) => row.unitId));
@@ -321,7 +321,7 @@ export function MasterStockScreen({ initial }: { initial: MasterStockList }) {
       <div>
         <h1 className="text-lg font-semibold text-fg">Master stock</h1>
         <p className="mt-0.5 text-sm text-fg-muted">
-          Every camera a picker picks waits here on hold — it still counts in stock. Save it to accept it (price and
+          Every item a picker picks waits here on hold — it still counts in stock. Save it to accept it (price and
           serial are optional); only then does the stock go down. Refuse it to send it back to the inventory.
         </p>
       </div>
@@ -384,13 +384,13 @@ export function MasterStockScreen({ initial }: { initial: MasterStockList }) {
               {query
                 ? "No matches."
                 : filter === "todo"
-                  ? "Nothing waiting — every picked camera has been accepted or returned."
-                  : "No picked cameras yet."}
+                  ? "Nothing waiting — every picked item has been accepted or returned."
+                  : "No picked items yet."}
             </Card>
           )}
 
           {data.limited && (
-            <p className="text-center text-xs text-fg-subtle">Showing the most recent {data.rows.length} cameras.</p>
+            <p className="text-center text-xs text-fg-subtle">Showing the most recent {data.rows.length} items.</p>
           )}
         </>
       )}

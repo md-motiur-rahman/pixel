@@ -1,4 +1,4 @@
-// The camera colours people can choose from, in the order they're listed in the
+// The item colours people can choose from, in the order they're listed in the
 // picker, each with the pill colours used wherever the colour is shown.
 export type CameraColor = { name: string; bg: string; fg: string; outline?: boolean };
 

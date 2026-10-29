@@ -456,7 +456,7 @@ begin
   end if;
 
   if not exists (select 1 from master_stock where unit_id = p_unit_id) then
-    raise exception 'That camera is not on the master stock list';
+    raise exception 'That item is not on the master stock list';
   end if;
 
   select serial_number into v_current_serial from units where id = p_unit_id for update;

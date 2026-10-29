@@ -5,7 +5,8 @@ import { useRef, useState } from "react";
 import { Combobox, type ComboboxOption } from "@/components/combobox";
 import { SerialInput } from "@/components/serial-input";
 import { ColorSelect } from "@/components/color-select";
-import { listModelAsins, searchBrands, searchModels } from "./search-actions";
+import { ColorPill } from "@/components/color-pill";
+import { listModelAsins, listModelColours, searchBrands, searchModels } from "./search-actions";
 import { createTestedUnit } from "./actions";
 import { Button, Field, Input, Message, Select } from "@/components/ui";
 
@@ -28,6 +29,26 @@ export function TesterForm({ grades }: { grades: Grade[] }) {
   const [asinOptions, setAsinOptions] = useState<string[]>([]);
   const [asin, setAsin] = useState("");
   const asinSeqRef = useRef(0);
+  // Colours this model is already known in (data entry or earlier items).
+  const [knownColours, setKnownColours] = useState<string[]>([]);
+  const coloursSeqRef = useRef(0);
+
+  async function loadColours(modelId: string | null) {
+    const seq = ++coloursSeqRef.current;
+    setKnownColours([]);
+    if (!modelId) return;
+    try {
+      const list = await listModelColours(modelId);
+      if (seq === coloursSeqRef.current) setKnownColours(list);
+    } catch {
+      // Suggestions only — the full colour list still works.
+    }
+  }
+
+  function pickColour(next: string) {
+    setColor(next);
+    void loadAsins(model?.id ?? null, next);
+  }
 
   async function loadAsins(modelId: string | null, forColor: string) {
     const seq = ++asinSeqRef.current;
@@ -88,13 +109,14 @@ export function TesterForm({ grades }: { grades: Grade[] }) {
     >
       <Combobox
         label="Brand"
-        placeholder="e.g. Canon"
+        placeholder="e.g. Apple, Sony, Canon"
         value={brand}
         onSelect={(opt) => {
           setBrand(opt);
           setModel(null);
           setModelName("");
           void loadAsins(null, color);
+          void loadColours(null);
         }}
         onCreateNew={(name) => {
           setBrand(null);
@@ -102,6 +124,7 @@ export function TesterForm({ grades }: { grades: Grade[] }) {
           setModel(null);
           setModelName("");
           void loadAsins(null, color);
+          void loadColours(null);
         }}
         search={searchBrands}
       />
@@ -109,30 +132,47 @@ export function TesterForm({ grades }: { grades: Grade[] }) {
       <Combobox
         key={brand?.id ?? "no-brand"}
         label="Model"
-        placeholder="e.g. PowerShot SX220IS"
+        placeholder="e.g. iPhone 13, PlayStation 5, PowerShot SX220IS"
         disabled={!effectiveBrandName}
         value={model}
         onSelect={(opt) => {
           setModel(opt);
           void loadAsins(opt.id, color);
+          void loadColours(opt.id);
         }}
         onCreateNew={(name) => {
           setModel(null);
           setModelName(name);
           void loadAsins(null, color);
+          void loadColours(null);
         }}
         search={(q) => (brand?.id ? searchModels(brand.id, q) : Promise.resolve([]))}
       />
 
       <Field label="Color">
-        <ColorSelect
-          value={color}
-          onValueChange={(next) => {
-            setColor(next);
-            void loadAsins(model?.id ?? null, next);
-          }}
-        />
+        <ColorSelect value={color} onValueChange={pickColour} />
       </Field>
+      {knownColours.length > 0 && (
+        <div className="-mt-3">
+          <p className="mb-1.5 text-xs text-fg-subtle">This model comes in:</p>
+          <div className="flex flex-wrap gap-1.5">
+            {knownColours.map((c) => (
+              <button
+                key={c}
+                type="button"
+                aria-pressed={c.toLowerCase() === color.toLowerCase()}
+                onClick={() => pickColour(c)}
+                className={
+                  "rounded-full p-0.5 outline-none transition focus-visible:ring-2 focus-visible:ring-accent/60 " +
+                  (c.toLowerCase() === color.toLowerCase() ? "ring-2 ring-accent" : "hover:opacity-80")
+                }
+              >
+                <ColorPill color={c} />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {asinOptions.length > 0 && (
         <Field label="ASIN" hint="ASINs data entry added for this model in this colour.">
@@ -157,7 +197,7 @@ export function TesterForm({ grades }: { grades: Grade[] }) {
         </Select>
       </Field>
 
-      <Field label="Buying price (£)" hint="Optional for now — what the camera cost, used later to work out profit.">
+      <Field label="Buying price (£)" hint="Optional for now — what the item cost, used later to work out profit.">
         <Input
           type="text"
           inputMode="decimal"
@@ -168,11 +208,11 @@ export function TesterForm({ grades }: { grades: Grade[] }) {
         />
       </Field>
 
-      <Field label="Serial number" hint="Optional — leave blank if the camera has none.">
+      <Field label="Serial number" hint="Optional — leave blank if the item has none.">
         <SerialInput value={serialNumber} onValueChange={setSerialNumber} />
       </Field>
 
-      <Field label="Note" hint="Optional — visible to the dispatcher when they pick this camera.">
+      <Field label="Note" hint="Optional — visible to the dispatcher when they pick this item.">
         <Input
           type="text"
           placeholder="e.g. with adapter, missing battery"

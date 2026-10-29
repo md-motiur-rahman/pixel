@@ -5,8 +5,8 @@ import { getAuthUser } from "@/lib/supabase/auth-user";
 import { fetchProfileRoles, hasRole } from "@/lib/roles";
 import { parsePrice } from "@/lib/money";
 
-// One camera a picker has picked. Brand, model, colour and serial come from the
-// camera itself. It stays ON HOLD (still counted in stock) until the master
+// One item a picker has picked. Brand, model, colour and serial come from the
+// item itself. It stays ON HOLD (still counted in stock) until the master
 // stocker saves it — that accepts it, and only then does the stock go down. They
 // can add a selling price and a missing serial while saving; both are optional.
 export type MasterStockRow = {
@@ -15,14 +15,14 @@ export type MasterStockRow = {
   model: string;
   color: string;
   grade: string;
-  /** Null when the camera has no serial number yet. */
+  /** Null when the item has no serial number yet. */
   serialNumber: string | null;
   note: string | null;
   pickedAt: string;
   pickedByName: string | null;
   /** Null when no selling price has been entered. */
   sellingPrice: number | null;
-  /** False while the camera is on hold, waiting for the master stocker. */
+  /** False while the item is on hold, waiting for the master stocker. */
   accepted: boolean;
 };
 
@@ -131,7 +131,7 @@ export type SaveMasterStockResult =
   | { ok: true; sellingPrice: number | null; serialNumber: string | null }
   | { ok: false; error: string };
 
-// Saving accepts the camera (taking it out of stock). Price and serial are both
+// Saving accepts the item (taking it out of stock). Price and serial are both
 // optional: a blank price keeps whatever price was there, but anything typed must
 // be a real amount.
 export async function saveMasterStockDetails(
@@ -158,12 +158,12 @@ export async function saveMasterStockDetails(
   });
   if (error) {
     if (error.code === "23505") {
-      return { ok: false, error: `Serial number "${serial}" is already used by another camera.` };
+      return { ok: false, error: `Serial number "${serial}" is already used by another item.` };
     }
     return { ok: false, error: setupHint(error.code, error.message) };
   }
 
-  // Read back what was actually stored — a serial already on the camera is never
+  // Read back what was actually stored — a serial already on the item is never
   // replaced, and a blank price kept whatever price was there.
   const [{ data: unit }, { data: stock }] = await Promise.all([
     supabase.from("units").select("serial_number").eq("id", unitId).maybeSingle(),
@@ -176,7 +176,7 @@ export async function saveMasterStockDetails(
   };
 }
 
-// Refusing sends the camera back to stock, exactly like undoing the pick: it
+// Refusing sends the item back to stock, exactly like undoing the pick: it
 // leaves this list and its quantity goes back up.
 export async function refuseMasterStock(unitId: string): Promise<{ ok: true } | { ok: false; error: string }> {
   const auth = await requireMasterStocker();

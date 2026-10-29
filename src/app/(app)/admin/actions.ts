@@ -114,7 +114,7 @@ export async function deleteStaff(userId: string): Promise<ActionResult> {
       return {
         ok: false,
         error:
-          "Can't delete — this person has tested, picked, or checked cameras on record. Deactivate them instead to keep that history.",
+          "Can't delete — this person has tested, picked, or checked items on record. Deactivate them instead to keep that history.",
       };
     }
     return { ok: false, error: error.message };

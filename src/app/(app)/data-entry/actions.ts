@@ -72,6 +72,35 @@ function toEntry(m: RawModel): ModelEntry {
 
 const MODEL_SELECT = "id, name, brands ( name ), model_asins ( id, asin, color, created_at )";
 
+// Makes sure the model + colour exists in the catalogue, so it shows in the
+// inventory (with zero stock) and testers get it suggested.
+async function ensureVariant(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: SupabaseClient<any, any, any>,
+  modelId: string,
+  color: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const result = await findOrCreate(
+    async () =>
+      supabase
+        .from("model_variants")
+        .select("id")
+        .eq("model_id", modelId)
+        .ilike("color", escapeLikePattern(color))
+        .maybeSingle(),
+    async () => supabase.from("model_variants").insert({ model_id: modelId, color }).select("id").single()
+  );
+  if (result.ok) return { ok: true };
+  // 42501: row level security said no — the policy for data entry isn't there yet.
+  if (/row-level security|42501/i.test(result.error)) {
+    return {
+      ok: false,
+      error: "Adding colours to the inventory needs a database update — run supabase/migration_15_data_entry_variants.sql in Supabase.",
+    };
+  }
+  return { ok: false, error: `Could not save colour: ${result.error}` };
+}
+
 // Adds the ASINs this model + colour doesn't have yet. Returns how many were new.
 async function addAsinsForColour(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -187,10 +216,14 @@ export async function addModelEntry(input: {
     modelId = result.id;
   }
 
+  const variant = await ensureVariant(supabase, modelId!, color);
+  if (!variant.ok) return variant;
+
   const saved = await addAsinsForColour(supabase, modelId!, color, checked.asins, userId);
   if (!saved.ok) return saved;
 
   revalidatePath("/data-entry");
+  revalidatePath("/admin/inventory");
   const count = saved.added;
   const skipped = checked.asins.length - count;
   return {
@@ -210,11 +243,15 @@ export async function addAsinToModel(modelId: string, colorInput: string, asin: 
   const checked = validateAsins([asin], 1);
   if (!checked.ok) return { ok: false, error: checked.error };
 
+  const variant = await ensureVariant(auth.supabase, modelId, color);
+  if (!variant.ok) return variant;
+
   const saved = await addAsinsForColour(auth.supabase, modelId, color, checked.asins, auth.userId);
   if (!saved.ok) return saved;
   if (saved.added === 0) return { ok: false, error: `${checked.asins[0]} is already on ${color}.` };
 
   revalidatePath("/data-entry");
+  revalidatePath("/admin/inventory");
   return { ok: true, message: "ASIN added." };
 }
 

@@ -43,9 +43,9 @@ const MERGE: Record<Level, (sourceId: string, targetId: string) => Promise<Resul
 
 // What moves when a duplicate is combined into the right one.
 const MOVES: Record<Level, string> = {
-  brand: "all its models, colours, cameras and ASINs",
-  model: "all its colours, cameras and ASINs",
-  colour: "all its cameras, stock and ASINs",
+  brand: "all its models, colours, items and ASINs",
+  model: "all its colours, items and ASINs",
+  colour: "all its items, stock and ASINs",
 };
 
 const menuItemClass =

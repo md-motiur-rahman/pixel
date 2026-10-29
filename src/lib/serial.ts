@@ -10,7 +10,7 @@ export function singleSerialMatch<T>(
     return {
       ok: false,
       error:
-        "More than one camera has this serial number (differing only in upper/lower case). Correct one of them first.",
+        "More than one item has this serial number (differing only in upper/lower case). Correct one of them first.",
     };
   }
   return { ok: true, row: rows[0] };

@@ -39,7 +39,7 @@ export default function LoginPage() {
   return (
     <AuthCard>
         <h1 className="text-lg font-semibold tracking-tight text-fg">Welcome back</h1>
-        <p className="mt-1 text-sm text-fg-muted">Camera inventory — sign in to continue.</p>
+        <p className="mt-1 text-sm text-fg-muted">Inventory — sign in to continue.</p>
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
           <Field label="Email">

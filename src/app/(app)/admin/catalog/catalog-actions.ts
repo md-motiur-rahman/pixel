@@ -111,7 +111,7 @@ export async function listModelsForBrand(brandId: string): Promise<CatalogItem[]
   }));
 }
 
-/** A model's colours, with how many cameras of each are in stock (all grades). */
+/** A model's colours, with how many items of each are in stock (all grades). */
 export async function listColoursForModel(modelId: string): Promise<CatalogItem[]> {
   const admin = await requireAdmin();
   if (!admin.ok) return [];

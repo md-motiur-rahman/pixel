@@ -20,7 +20,7 @@ export type EditableUnit = {
   serialNumber: string;
   note: string | null;
   modelVariantId: string;
-  /** What the camera cost, as text for the form; empty when none was recorded. */
+  /** What the item cost, as text for the form; empty when none was recorded. */
   buyingPrice: string;
 };
 
@@ -85,7 +85,7 @@ export async function findUnitForEdit(rawInput: string): Promise<FindResult> {
   if (!match.ok) return { ok: false, error: match.error };
   if (match.row) return { ok: true, unit: toEditableUnit(match.row) };
 
-  return { ok: false, error: "No camera found for that QR code or serial number." };
+  return { ok: false, error: "No item found for that QR code or serial number." };
 }
 
 export type UpdateUnitDetailsInput = {
@@ -137,13 +137,13 @@ export async function updateUnitDetails(
       .limit(1);
     if (serialCheckError) return { ok: false, error: serialCheckError.message };
     if (serialRows && serialRows.length > 0) {
-      return { ok: false, error: `Serial number "${serialNumber}" is already used by another camera.` };
+      return { ok: false, error: `Serial number "${serialNumber}" is already used by another item.` };
     }
   }
 
   // Same find-or-create cascade as creating a unit — a tester correcting a
   // mistyped brand/model/color here goes through the identical catalog path
-  // as first logging the camera, rather than trusting a raw variant id.
+  // as first logging the item, rather than trusting a raw variant id.
   let brandId = input.brandId;
   if (!brandId) {
     const result = await findOrCreate(
@@ -218,7 +218,7 @@ export async function updateUnitDetails(
 
   if (error) {
     if (error.code === "23505") {
-      return { ok: false, error: `Serial number "${serialNumber}" is already used by another camera.` };
+      return { ok: false, error: `Serial number "${serialNumber}" is already used by another item.` };
     }
     return { ok: false, error: error.message };
   }
@@ -226,12 +226,12 @@ export async function updateUnitDetails(
   // rows without Postgres raising an error — check explicitly rather than
   // re-reading a unit that was never actually changed.
   if (!updated || updated.length === 0) {
-    return { ok: false, error: "You cannot edit this camera, or it no longer exists." };
+    return { ok: false, error: "You cannot edit this item, or it no longer exists." };
   }
 
   const { data, error: readError } = await supabase.from("units").select(SELECT).eq("id", unitId).single();
   if (readError || !data) {
-    return { ok: false, error: "Saved, but could not reload the camera's details." };
+    return { ok: false, error: "Saved, but could not reload the item's details." };
   }
   return { ok: true, unit: toEditableUnit(data) };
 }

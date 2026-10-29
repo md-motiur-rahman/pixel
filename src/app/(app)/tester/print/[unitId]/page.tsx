@@ -41,7 +41,7 @@ export default async function PrintLabelPage({
   const labelLine3 = `Grade ${gradeCode}`;
 
   // Each unit gets its own QR — this is the ID a dispatcher/checker scan resolves
-  // straight to this exact physical camera, no manual matching needed.
+  // straight to this exact physical item, no manual matching needed.
   const qrDataUrl = await QRCode.toDataURL(unit.id, { margin: 1, width: 320 });
 
   return (
@@ -55,7 +55,7 @@ export default async function PrintLabelPage({
               clipRule="evenodd"
             />
           </svg>
-          <p className="text-sm font-medium">Camera saved</p>
+          <p className="text-sm font-medium">Item saved</p>
         </div>
         <p className="mt-1 text-sm text-fg-muted">
           {brandName} {modelName} {color} — Grade {gradeCode}

@@ -33,12 +33,12 @@ export async function listInventory(): Promise<InventoryData> {
 
   const [gradesResult, result] = await Promise.all([
     admin.supabase.from("grades").select("code").order("sort_order").order("code"),
-    // !inner: only model + colour combinations that have at least one stock line.
+    // Every model + colour — including ones data entry added that have no stock yet.
     fetchAllPages(async (from, to) =>
       admin.supabase
         .from("model_variants")
         .select(
-          "id, color, models ( name, brands ( name ) ), sku_lines!inner ( quantity, grades ( code ) ), variant_asins ( asin, position )"
+          "id, color, models ( name, brands ( name ) ), sku_lines ( quantity, grades ( code ) ), variant_asins ( asin, position )"
         )
         .order("id")
         .range(from, to)
@@ -47,12 +47,12 @@ export async function listInventory(): Promise<InventoryData> {
   if (!result.ok) return { rows: [], grades: [] };
 
   // Repair and Clearance grades aren't inventory — they have their own pages. A
-  // model + colour that only has those grades doesn't get a row here at all.
-  const inventoryVariants = result.rows.filter((variant) =>
-    ((variant.sku_lines ?? []) as unknown as { grades: { code: string } }[]).some((line) =>
-      isInventoryGrade(line.grades.code)
-    )
-  );
+  // model + colour that only has those grades doesn't get a row here at all; one
+  // with no stock lines yet (just added by data entry) shows with zeros.
+  const inventoryVariants = result.rows.filter((variant) => {
+    const lines = (variant.sku_lines ?? []) as unknown as { grades: { code: string } }[];
+    return lines.length === 0 || lines.some((line) => isInventoryGrade(line.grades.code));
+  });
 
   const rows: InventoryRow[] = inventoryVariants.map((variant) => {
     const model = variant.models as unknown as { name: string; brands: { name: string } };
@@ -133,7 +133,7 @@ async function confirmAdminPassword(
   return { ok: true };
 }
 
-// Permanently deletes every in-stock camera record (password required).
+// Permanently deletes every in-stock item record (password required).
 export async function emptyInventory(
   password: string
 ): Promise<{ ok: true; deleted: number } | { ok: false; error: string }> {
@@ -158,7 +158,7 @@ export async function emptyInventory(
   return { ok: true, deleted: data };
 }
 
-// Sets every model's stock to 0 without deleting any camera record (password required).
+// Sets every model's stock to 0 without deleting any item record (password required).
 export async function zeroInventory(
   password: string
 ): Promise<{ ok: true; lines: number } | { ok: false; error: string }> {
@@ -187,8 +187,8 @@ export type DeleteEntryResult =
   | { ok: true; cameras: number; modelRemoved: boolean; brandRemoved: boolean }
   | { ok: false; error: string };
 
-// Deletes one model + colour added by mistake, with its in-stock cameras (password
-// required). The database refuses if any of its cameras were picked or shipped.
+// Deletes one model + colour added by mistake, with its in-stock items (password
+// required). The database refuses if any of its items were picked or shipped.
 export async function deleteInventoryEntry(variantId: string, password: string): Promise<DeleteEntryResult> {
   const admin = await requireAdmin();
   if (!admin.ok) return { ok: false, error: admin.error };

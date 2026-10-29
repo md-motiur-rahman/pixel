@@ -11,7 +11,7 @@ export function PrintActions() {
         Print label
       </Button>
       <Button variant="secondary" onClick={() => router.push("/tester")} className="sm:w-auto">
-        Test another camera
+        Test another item
       </Button>
     </div>
   );

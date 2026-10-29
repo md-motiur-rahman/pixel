@@ -118,7 +118,7 @@ export function EditUnitPanel({ grades }: { grades: Grade[] }) {
         onClick={() => setOpen(true)}
         className="text-sm font-medium text-link hover:text-link-hover"
       >
-        Find a saved camera — reprint its label or fix a mistake
+        Find a saved item — reprint its label or fix a mistake
       </button>
     );
   }
@@ -127,7 +127,7 @@ export function EditUnitPanel({ grades }: { grades: Grade[] }) {
     <Card className="p-5 sm:p-6">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-sm font-semibold text-fg">Find a saved camera</h2>
+          <h2 className="text-sm font-semibold text-fg">Find a saved item</h2>
           <p className="mt-0.5 text-xs text-fg-subtle">Reprint its QR label or correct its details.</p>
         </div>
         <button
@@ -194,7 +194,7 @@ export function EditUnitPanel({ grades }: { grades: Grade[] }) {
           <Combobox
             key={`brand-${unit.id}`}
             label="Brand"
-            placeholder="e.g. Canon"
+            placeholder="e.g. Apple, Sony, Canon"
             value={brand}
             onSelect={(opt) => {
               setBrand(opt);
@@ -213,7 +213,7 @@ export function EditUnitPanel({ grades }: { grades: Grade[] }) {
           <Combobox
             key={`model-${unit.id}-${brand?.id ?? brandName}`}
             label="Model"
-            placeholder="e.g. PowerShot SX220IS"
+            placeholder="e.g. iPhone 13, PlayStation 5, PowerShot SX220IS"
             disabled={!effectiveBrandName}
             value={model}
             onSelect={setModel}
@@ -238,7 +238,7 @@ export function EditUnitPanel({ grades }: { grades: Grade[] }) {
             </Select>
           </Field>
 
-          <Field label="Serial number" hint="Optional — leave blank if the camera has none.">
+          <Field label="Serial number" hint="Optional — leave blank if the item has none.">
             <SerialInput value={serialNumber} onValueChange={setSerialNumber} />
           </Field>
 

@@ -19,6 +19,7 @@ import {
   ListPlus,
   Users,
   Warehouse,
+  LayoutDashboard,
   Boxes,
   Wrench,
   Tag,
@@ -44,13 +45,13 @@ const WORKSPACES: Record<Exclude<Role, "admin">, NavEntry> = {
   tester: {
     href: "/tester",
     label: "Test & label",
-    description: "Log a tested camera and print its QR label",
+    description: "Log a tested item and print its QR label",
     icon: FlaskConical,
   },
   dispatcher: {
     href: "/dispatcher",
     label: "Pick & dispatch",
-    description: "Scan a camera to look it up or pick it",
+    description: "Scan an item to look it up or pick it",
     icon: PackageCheck,
   },
   checker: {
@@ -68,19 +69,19 @@ const WORKSPACES: Record<Exclude<Role, "admin">, NavEntry> = {
   master_stocker: {
     href: "/master-stock",
     label: "Master stock",
-    description: "Price the cameras that were picked and add missing serials",
+    description: "Price the items that were picked and add missing serials",
     icon: Boxes,
   },
   repair: {
     href: "/repair",
     label: "Repair",
-    description: "Cameras graded D, waiting for repair",
+    description: "Items graded D, waiting for repair",
     icon: Wrench,
   },
   clearance: {
     href: "/clearance",
     label: "Clearance",
-    description: "Cameras graded E, for clearance",
+    description: "Items graded E, for clearance",
     icon: Tag,
   },
 };
@@ -97,6 +98,7 @@ const ADMIN_WORKSPACE_KEYS = [
 ] as const;
 
 const ADMIN_PAGES: NavEntry[] = [
+  { href: "/admin/dashboard", label: "Dashboard", description: "Stock, testing and sales at a glance", icon: LayoutDashboard },
   { href: "/admin/inventory", label: "Inventory", description: "See what is in stock right now", icon: Warehouse },
   { href: "/admin", exact: true, label: "Staff", description: "Invite people and manage roles", icon: Users },
   { href: "/admin/catalog", label: "Catalog", description: "Fix brands, models and colours", icon: BookOpen },
@@ -256,7 +258,7 @@ function SidebarContent({
         </span>
         <div className="min-w-0">
           <p className="text-sm font-semibold tracking-tight text-fg">Pixel Direct</p>
-          <p className="text-xs text-fg-subtle">Camera inventory</p>
+          <p className="text-xs text-fg-subtle">Inventory system</p>
         </div>
       </div>
 

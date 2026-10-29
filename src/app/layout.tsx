@@ -22,7 +22,7 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: "Pixel Direct — Inventory",
-  description: "Camera testing, dispatch, and stock count inventory system",
+  description: "Testing, dispatch, and stock count inventory system for cameras, consoles, laptops, phones and tablets",
   manifest: "/manifest.json",
 };
 

@@ -12,7 +12,7 @@ export type UnitDetails = {
   model: string;
   color: string;
   grade: string;
-  /** Null when the camera has no serial number. */
+  /** Null when the item has no serial number. */
   serialNumber: string | null;
   note: string | null;
   status: UnitStatus;
@@ -76,7 +76,7 @@ export async function lookupUnit(rawScan: string): Promise<UnitLookupResult> {
   const supabase = await createClient();
 
   // Our QR labels encode the unit id; anything else is treated as a serial
-  // number (typed, or read from the camera's own barcode).
+  // number (typed, or read from the item's own barcode).
   if (looksLikeUuid(unitId)) {
     const { data, error } = await supabase.from("units").select(UNIT_SELECT).eq("id", unitId).maybeSingle();
     if (error) return { ok: false, error: error.message };
@@ -91,7 +91,7 @@ export async function lookupUnit(rawScan: string): Promise<UnitLookupResult> {
   if (serialError) return { ok: false, error: serialError.message };
   const match = singleSerialMatch(rows);
   if (!match.ok) return { ok: false, error: match.error };
-  if (!match.row) return { ok: false, error: "No camera found for that QR code or serial number." };
+  if (!match.row) return { ok: false, error: "No item found for that QR code or serial number." };
   return { ok: true, unit: toUnitDetails(match.row) };
 }
 
@@ -114,7 +114,7 @@ export async function pickUnit(unitId: string): Promise<UnitLookupResult> {
 
   if (error) return { ok: false, error: error.message };
   if (!data) {
-    return { ok: false, error: "This camera was already picked by someone else.", permanent: true };
+    return { ok: false, error: "This item was already picked by someone else.", permanent: true };
   }
   return { ok: true, unit: toUnitDetails(data) };
 }
@@ -132,7 +132,7 @@ export async function undoPick(unitId: string): Promise<UnitLookupResult> {
 
   if (error) return { ok: false, error: error.message };
   if (!data) {
-    return { ok: false, error: "This camera isn't currently picked, so there's nothing to undo." };
+    return { ok: false, error: "This item isn't currently picked, so there's nothing to undo." };
   }
   return { ok: true, unit: toUnitDetails(data) };
 }

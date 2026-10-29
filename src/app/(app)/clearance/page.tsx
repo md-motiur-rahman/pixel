@@ -8,7 +8,7 @@ export default async function ClearancePage() {
     <GradeUnitsTable
       title="Clearance"
       gradeLabel={`Grade ${CLEARANCE_GRADE}`}
-      description="Cameras graded E — Clearance. They're kept out of the inventory and listed here."
+      description="Items graded E — Clearance. They're kept out of the inventory and listed here."
       result={result}
     />
   );

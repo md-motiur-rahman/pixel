@@ -1,5 +1,5 @@
 // Supabase/PostgREST caps a single response at 1,000 rows by default — this
-// client has 1,000+ camera models, so any unpaginated query over the catalog
+// client has 1,000+ item models, so any unpaginated query over the catalog
 // (or a large export) can silently truncate. Pages through until a request
 // returns zero rows.
 //

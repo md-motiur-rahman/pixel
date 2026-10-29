@@ -89,7 +89,7 @@ export function ScanPanel() {
     if (!value.trim()) return;
     // A second scan can start before the first one's response arrives; if
     // that first response lands after, it must not overwrite the newer
-    // camera on screen — someone could then Pick the wrong unit.
+    // item on screen — someone could then Pick the wrong unit.
     const seq = ++lookupSeqRef.current;
     setLoading(true);
     setError(null);
@@ -113,7 +113,7 @@ export function ScanPanel() {
       if (seq !== lookupSeqRef.current) return;
       setLoading(false);
       setScan("");
-      setError("You're offline — looking up a camera needs a connection.");
+      setError("You're offline — looking up an item needs a connection.");
     }
   }
 
@@ -210,7 +210,7 @@ export function ScanPanel() {
 
       <Card className="p-5 sm:p-6">
         <form onSubmit={handleScanSubmit}>
-          <Field label="Scan a camera QR, or type its serial number">
+          <Field label="Scan an item QR, or type its serial number">
             <Input
               ref={inputRef}
               type="text"
@@ -264,7 +264,7 @@ export function ScanPanel() {
           <div className="mt-5">
             {unit.status === "in_stock" && (
               <Button onClick={handlePick} disabled={picking} className="w-full">
-                {picking ? "Picking…" : "Pick this camera"}
+                {picking ? "Picking…" : "Pick this item"}
               </Button>
             )}
             {unit.status !== "in_stock" && (

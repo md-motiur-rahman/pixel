@@ -26,7 +26,7 @@ export function CountSession({
   const [stockCountId, setStockCountId] = useState<string | null>(initialStockCountId);
   const [scan, setScan] = useState("");
   const [tally, setTally] = useState<TallyRow[]>(initialTally);
-  // Only cameras that have actually been scanned this session are shown; lines
+  // Only items that have actually been scanned this session are shown; lines
   // that exist in the system but were not scanned stay out of the table.
   const scannedRows = tally.filter((row) => row.scannedQty > 0);
   const [lastMessage, setLastMessage] = useState<string | null>(null);
@@ -206,7 +206,7 @@ export function CountSession({
   if (!stockCountId) {
     return (
       <Card className="mx-auto w-full max-w-3xl p-6 text-center sm:p-8">
-        <p className="text-sm text-fg-muted">Start a new session, then scan every camera on the shelf.</p>
+        <p className="text-sm text-fg-muted">Start a new session, then scan every item on the shelf.</p>
         <Button onClick={handleStart} disabled={starting} className="mt-4">
           {starting ? "Starting…" : "Start new count"}
         </Button>
@@ -220,7 +220,7 @@ export function CountSession({
       <Card className="mx-auto w-full max-w-3xl p-5 sm:p-6">
         <form onSubmit={handleScanSubmit} className="flex flex-col gap-3 sm:flex-row sm:items-end">
           <div className="flex-1">
-            <Field label="Scan a camera QR">
+            <Field label="Scan an item QR">
               <Input
                 ref={inputRef}
                 type="text"
@@ -345,8 +345,8 @@ export function CountSession({
               </p>
               {adjusting.diff > 0 ? (
                 <p>
-                  More cameras were scanned than the system has in stock, so some of the scanned ones are recorded as
-                  picked or shipped. Confirming puts those cameras back in stock and sets the system stock to{" "}
+                  More items were scanned than the system has in stock, so some of the scanned ones are recorded as
+                  picked or shipped. Confirming puts those items back in stock and sets the system stock to{" "}
                   {adjusting.scannedQty}.
                 </p>
               ) : (

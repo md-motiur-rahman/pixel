@@ -27,7 +27,7 @@ export const ROLE_LABEL: Record<Role, string> = {
 
 // Where each role lands, and the URL section it owns.
 export const ROLE_HOME: Record<Role, string> = {
-  admin: "/admin/inventory",
+  admin: "/admin/dashboard",
   tester: "/tester",
   dispatcher: "/dispatcher",
   checker: "/checker",

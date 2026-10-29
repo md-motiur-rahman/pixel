@@ -77,7 +77,7 @@ export interface Database {
           tested_at: string;
           picked_by: string | null;
           picked_at: string | null;
-          /** What the camera cost, entered by the tester. Null for cameras tested before this was recorded. */
+          /** What the item cost, entered by the tester. Null for items tested before this was recorded. */
           buying_price: number | null;
         },
         {
@@ -106,7 +106,7 @@ export interface Database {
           selling_price: number | null;
           priced_by: string | null;
           priced_at: string | null;
-          /** Null while the camera is on hold, waiting for the master stocker. */
+          /** Null while the item is on hold, waiting for the master stocker. */
           accepted_at: string | null;
           accepted_by: string | null;
         },

@@ -122,7 +122,7 @@ export function InventoryTable({ initialRows, grades }: { initialRows: Inventory
         setEmptyError(result.error);
         return;
       }
-      setNotice(`All stock zeroed — ${result.lines} line${result.lines === 1 ? "" : "s"} set to 0. No camera records were deleted.`);
+      setNotice(`All stock zeroed — ${result.lines} line${result.lines === 1 ? "" : "s"} set to 0. No item records were deleted.`);
       setZeroing(false);
       setEmptyPassword("");
       // Re-read the table so the new (zero) quantities show without a manual reload.
@@ -154,7 +154,7 @@ export function InventoryTable({ initialRows, grades }: { initialRows: Inventory
         return;
       }
       const removed = [
-        `${result.cameras} camera record${result.cameras === 1 ? "" : "s"}`,
+        `${result.cameras} item record${result.cameras === 1 ? "" : "s"}`,
         result.modelRemoved ? "the model" : null,
         result.brandRemoved ? "the brand" : null,
       ].filter(Boolean);
@@ -178,7 +178,7 @@ export function InventoryTable({ initialRows, grades }: { initialRows: Inventory
         setEmptyError(result.error);
         return;
       }
-      setNotice(`Inventory emptied — ${result.deleted} camera${result.deleted === 1 ? "" : "s"} deleted.`);
+      setNotice(`Inventory emptied — ${result.deleted} item${result.deleted === 1 ? "" : "s"} deleted.`);
       setEmptying(false);
       setEmptyPassword("");
       router.refresh();
@@ -400,7 +400,7 @@ export function InventoryTable({ initialRows, grades }: { initialRows: Inventory
 
         <div className="ml-auto flex items-center gap-2">
           <p className="text-xs text-fg-muted sm:text-sm">
-            {filtered.length} line{filtered.length === 1 ? "" : "s"} · {shownUnits} camera
+            {filtered.length} line{filtered.length === 1 ? "" : "s"} · {shownUnits} item
             {shownUnits === 1 ? "" : "s"} in stock
           </p>
           <Button
@@ -631,7 +631,7 @@ export function InventoryTable({ initialRows, grades }: { initialRows: Inventory
         description={
           <>
             <p className="font-medium text-danger">
-              This permanently deletes all {totalInStock} in-stock camera{totalInStock === 1 ? "" : "s"}. It can&rsquo;t
+              This permanently deletes all {totalInStock} in-stock item{totalInStock === 1 ? "" : "s"}. It can&rsquo;t
               be undone.
             </p>
             <p>
@@ -640,7 +640,7 @@ export function InventoryTable({ initialRows, grades }: { initialRows: Inventory
             </p>
           </>
         }
-        confirmLabel="Delete all cameras"
+        confirmLabel="Delete all items"
         destructive
         busy={emptyBusy}
         error={emptyError}
@@ -670,11 +670,11 @@ export function InventoryTable({ initialRows, grades }: { initialRows: Inventory
         description={
           <>
             <p className="font-medium text-fg">
-              Every model&rsquo;s quantity ({totalInStock} camera{totalInStock === 1 ? "" : "s"} in total) becomes 0.
+              Every model&rsquo;s quantity ({totalInStock} item{totalInStock === 1 ? "" : "s"} in total) becomes 0.
             </p>
             <p>
-              No camera records are deleted — they stay in the system, so each can still be looked up, scanned and
-              picked. New cameras tested from now on count up from zero. A line-by-line record is added to the
+              No item records are deleted — they stay in the system, so each can still be looked up, scanned and
+              picked. New items tested from now on count up from zero. A line-by-line record is added to the
               adjustment log.
             </p>
           </>
@@ -710,12 +710,12 @@ export function InventoryTable({ initialRows, grades }: { initialRows: Inventory
           deletingRow && (
             <>
               <p className="font-medium text-danger">
-                {rowName(deletingRow)} — all grades, with its {totalOf(deletingRow)} in-stock camera
+                {rowName(deletingRow)} — all grades, with its {totalOf(deletingRow)} in-stock item
                 {totalOf(deletingRow) === 1 ? "" : "s"}. This can&rsquo;t be undone.
               </p>
               <p>
                 Use this for something added by mistake. The model (and brand) are removed too if nothing else uses
-                them. If any of its cameras were already picked or shipped, it won&rsquo;t be deleted.
+                them. If any of its items were already picked or shipped, it won&rsquo;t be deleted.
               </p>
             </>
           )

@@ -20,7 +20,7 @@ export default function ExportPage() {
       <Card className="p-5 sm:p-6">
         <h2 className="text-sm font-semibold text-fg">All units</h2>
         <p className="mt-1 text-sm text-fg-muted">
-          Every camera ever tested, with its serial, status, tester, and pick history.
+          Every item ever tested, with its serial, status, tester, and pick history.
         </p>
         <Button asChild className="mt-4">
           <a href="/api/export/units">

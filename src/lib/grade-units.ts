@@ -4,13 +4,13 @@ import { fetchAllPages } from "@/lib/fetch-all-pages";
 import { fetchProfileRoles, hasRole, ROLE_LABEL } from "@/lib/roles";
 import type { Role } from "@/types/database";
 
-// One in-stock camera of a non-inventory grade (Repair / Clearance).
+// One in-stock item of a non-inventory grade (Repair / Clearance).
 export type GradeUnit = {
   id: string;
   brand: string;
   model: string;
   color: string;
-  /** Null when the camera has no serial number. */
+  /** Null when the item has no serial number. */
   serialNumber: string | null;
   note: string | null;
   testerName: string | null;
@@ -26,7 +26,7 @@ type RawUnit = {
   sku_lines: unknown;
 };
 
-// Every in-stock camera graded `gradeCode`, newest first — for someone holding
+// Every in-stock item graded `gradeCode`, newest first — for someone holding
 // `role` (admins can always see it).
 export async function loadGradeUnits(
   gradeCode: string,

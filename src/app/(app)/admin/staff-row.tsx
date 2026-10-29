@@ -235,7 +235,7 @@ export function StaffRow({ member, isYou, onNotify }: { member: StaffMember; isY
           <>
             <p className="font-medium text-danger">This removes their account for good.</p>
             <p>
-              Someone who has tested, picked or counted cameras can&rsquo;t be deleted — deactivate them instead to keep
+              Someone who has tested, picked or counted items can&rsquo;t be deleted — deactivate them instead to keep
               that history.
             </p>
           </>

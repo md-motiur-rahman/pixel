@@ -40,7 +40,7 @@ export function DataEntryScreen({ initialEntries }: { initialEntries: ModelEntry
           <h2 className="text-sm font-semibold text-fg">Models &amp; ASINs</h2>
           <p className="mt-0.5 text-sm text-fg-muted">
             {query.trim() ? "Search results" : "Latest entries"} — each colour of a model has its own ASIN(s). Testers
-            pick from these when they log a camera of that model and colour.
+            pick from these when they log an item of that model and colour.
           </p>
           <div className="relative mt-3">
             <Search aria-hidden="true" className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-fg-subtle" />
@@ -129,7 +129,7 @@ function EntryForm({ onSaved }: { onSaved: () => void }) {
 
       <Combobox
         label="Brand"
-        placeholder="e.g. Canon"
+        placeholder="e.g. Apple, Sony, Canon"
         value={brand}
         onSelect={(opt) => {
           setBrand(opt);
@@ -150,7 +150,7 @@ function EntryForm({ onSaved }: { onSaved: () => void }) {
       <Combobox
         key={`${brand?.id ?? brandName}-${modelKey}`}
         label="Model"
-        placeholder="e.g. PowerShot SX220IS"
+        placeholder="e.g. iPhone 13, PlayStation 5, PowerShot SX220IS"
         disabled={!effectiveBrand}
         value={model}
         onSelect={setModel}

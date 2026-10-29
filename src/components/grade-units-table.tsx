@@ -7,8 +7,8 @@ import { Card, Input, Message } from "@/components/ui";
 import { ColorPill } from "@/components/color-pill";
 import type { GradeUnit } from "@/lib/grade-units";
 
-// The Repair and Clearance pages: every in-stock camera of that grade. To move a
-// camera out (e.g. repaired → Grade A), regrade it in Tester → Find a saved camera.
+// The Repair and Clearance pages: every in-stock item of that grade. To move a
+// item out (e.g. repaired → Grade A), regrade it in Tester → Find a saved item.
 export function GradeUnitsTable({
   title,
   description,
@@ -53,7 +53,7 @@ export function GradeUnitsTable({
         </div>
         {result.ok && (
           <p className="text-sm text-fg-muted">
-            {units.length} camera{units.length === 1 ? "" : "s"}
+            {units.length} item{units.length === 1 ? "" : "s"}
             {query ? ` of ${result.units.length}` : ""} · {gradeLabel}
           </p>
         )}
@@ -109,7 +109,7 @@ export function GradeUnitsTable({
                 {units.length === 0 && (
                   <tr>
                     <td colSpan={7} className="px-3.5 py-8 text-center text-fg-subtle">
-                      {query ? "No matches." : `No cameras in ${title.toLowerCase()} right now.`}
+                      {query ? "No matches." : `No items in ${title.toLowerCase()} right now.`}
                     </td>
                   </tr>
                 )}
