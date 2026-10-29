@@ -2,22 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/admin-auth";
-import { escapeLikePattern } from "@/lib/escape-like";
 
 type ActionResult = { ok: true } | { ok: false; error: string };
 
-export type BrandRow = { id: string; name: string };
-export type ModelRow = { id: string; name: string; brandId: string; brandName: string };
-export type VariantRow = { id: string; color: string };
 
 // ── Brands ──────────────────────────────────────────────────────────
-export async function listAllBrands(): Promise<BrandRow[]> {
-  const admin = await requireAdmin();
-  if (!admin.ok) return [];
-  const { data } = await admin.supabase.from("brands").select("id, name").order("name");
-  return data ?? [];
-}
-
 export async function renameBrand(id: string, name: string): Promise<ActionResult> {
   const admin = await requireAdmin();
   if (!admin.ok) return admin;
@@ -41,24 +30,6 @@ export async function mergeBrandsAction(sourceId: string, targetId: string): Pro
 }
 
 // ── Models ──────────────────────────────────────────────────────────
-export async function searchModelsAdmin(query: string): Promise<ModelRow[]> {
-  const admin = await requireAdmin();
-  if (!admin.ok) return [];
-  if (!query.trim()) return [];
-  const { data } = await admin.supabase
-    .from("models")
-    .select("id, name, brand_id, brands ( name )")
-    .ilike("name", `%${escapeLikePattern(query)}%`)
-    .order("name")
-    .limit(30);
-  return (data ?? []).map((m) => ({
-    id: m.id,
-    name: m.name,
-    brandId: m.brand_id,
-    brandName: (m.brands as unknown as { name: string }).name,
-  }));
-}
-
 export async function renameModel(id: string, name: string): Promise<ActionResult> {
   const admin = await requireAdmin();
   if (!admin.ok) return admin;
@@ -83,17 +54,6 @@ export async function mergeModelsAction(sourceId: string, targetId: string): Pro
 }
 
 // ── Colors (variants), scoped to one model at a time ──────────────────
-export async function listVariantsForModel(modelId: string): Promise<VariantRow[]> {
-  const admin = await requireAdmin();
-  if (!admin.ok) return [];
-  const { data } = await admin.supabase
-    .from("model_variants")
-    .select("id, color")
-    .eq("model_id", modelId)
-    .order("color");
-  return data ?? [];
-}
-
 export async function renameVariant(id: string, color: string): Promise<ActionResult> {
   const admin = await requireAdmin();
   if (!admin.ok) return admin;
@@ -118,4 +78,51 @@ export async function mergeVariantsAction(sourceId: string, targetId: string): P
   if (error) return { ok: false, error: error.message };
   revalidatePath("/admin/catalog");
   return { ok: true };
+}
+
+// ── Browsing (Brands → Models → Colours), with simple counts ──────────
+export type CatalogItem = { id: string; name: string; count: number };
+
+/** Every brand, with how many models it has. */
+export async function listBrandsWithCounts(): Promise<CatalogItem[]> {
+  const admin = await requireAdmin();
+  if (!admin.ok) return [];
+  const { data } = await admin.supabase.from("brands").select("id, name, models ( count )").order("name");
+  return (data ?? []).map((b) => ({
+    id: b.id,
+    name: b.name,
+    count: ((b.models as unknown as { count: number }[] | null) ?? [])[0]?.count ?? 0,
+  }));
+}
+
+/** A brand's models, with how many colours each has. */
+export async function listModelsForBrand(brandId: string): Promise<CatalogItem[]> {
+  const admin = await requireAdmin();
+  if (!admin.ok) return [];
+  const { data } = await admin.supabase
+    .from("models")
+    .select("id, name, model_variants ( count )")
+    .eq("brand_id", brandId)
+    .order("name");
+  return (data ?? []).map((m) => ({
+    id: m.id,
+    name: m.name,
+    count: ((m.model_variants as unknown as { count: number }[] | null) ?? [])[0]?.count ?? 0,
+  }));
+}
+
+/** A model's colours, with how many cameras of each are in stock (all grades). */
+export async function listColoursForModel(modelId: string): Promise<CatalogItem[]> {
+  const admin = await requireAdmin();
+  if (!admin.ok) return [];
+  const { data } = await admin.supabase
+    .from("model_variants")
+    .select("id, color, sku_lines ( quantity )")
+    .eq("model_id", modelId)
+    .order("color");
+  return (data ?? []).map((v) => ({
+    id: v.id,
+    name: v.color,
+    count: ((v.sku_lines as unknown as { quantity: number }[] | null) ?? []).reduce((sum, l) => sum + l.quantity, 0),
+  }));
 }
