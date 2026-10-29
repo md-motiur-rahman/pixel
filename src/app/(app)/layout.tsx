@@ -7,5 +7,5 @@ import { getCurrentProfile } from "@/lib/get-current-profile";
 // rebuilding the whole shell on every click.
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const profile = await getCurrentProfile();
-  return <AppShell role={profile?.role ?? null}>{children}</AppShell>;
+  return <AppShell roles={profile?.roles ?? []}>{children}</AppShell>;
 }

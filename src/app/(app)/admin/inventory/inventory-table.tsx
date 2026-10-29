@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Dialog, VisuallyHidden } from "radix-ui";
 import { ChevronLeft, ChevronRight, Eraser, Pencil, Plus, Search, SlidersHorizontal, Trash2, X } from "lucide-react";
 import { Button, Card, Field, Input, Message, Select } from "@/components/ui";
@@ -27,6 +28,7 @@ function totalOf(row: InventoryRow) {
 }
 
 export function InventoryTable({ initialRows, grades }: { initialRows: InventoryData["rows"]; grades: string[] }) {
+  const router = useRouter();
   const [query, setQuery] = useState("");
   const [filters, setFilters] = useState<Filters>(NO_FILTERS);
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
@@ -112,6 +114,8 @@ export function InventoryTable({ initialRows, grades }: { initialRows: Inventory
       setNotice(`All stock zeroed — ${result.lines} line${result.lines === 1 ? "" : "s"} set to 0. No camera records were deleted.`);
       setZeroing(false);
       setEmptyPassword("");
+      // Re-read the table so the new (zero) quantities show without a manual reload.
+      router.refresh();
     } catch {
       setEmptyError("Could not zero the stock — check your connection and try again.");
     } finally {
@@ -140,6 +144,7 @@ export function InventoryTable({ initialRows, grades }: { initialRows: Inventory
       setNotice(`Inventory emptied — ${result.deleted} camera${result.deleted === 1 ? "" : "s"} deleted.`);
       setEmptying(false);
       setEmptyPassword("");
+      router.refresh();
     } catch {
       setEmptyError("Could not empty the inventory — check your connection and try again.");
     } finally {

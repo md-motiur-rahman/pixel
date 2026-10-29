@@ -25,6 +25,7 @@ export function EditUnitPanel({ grades }: { grades: Grade[] }) {
   const [color, setColor] = useState("");
   const [serialNumber, setSerialNumber] = useState("");
   const [note, setNote] = useState("");
+  const [buyingPrice, setBuyingPrice] = useState("");
   const [gradeId, setGradeId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -59,6 +60,7 @@ export function EditUnitPanel({ grades }: { grades: Grade[] }) {
       setColor(result.unit.color);
       setSerialNumber(result.unit.serialNumber);
       setNote(result.unit.note ?? "");
+      setBuyingPrice(result.unit.buyingPrice);
       setGradeId(result.unit.gradeId);
     } catch {
       if (seq !== searchSeqRef.current) return;
@@ -89,6 +91,7 @@ export function EditUnitPanel({ grades }: { grades: Grade[] }) {
         gradeId,
         serialNumber,
         note,
+        buyingPrice,
       });
       if (!result.ok) {
         setError(result.error);
@@ -100,6 +103,7 @@ export function EditUnitPanel({ grades }: { grades: Grade[] }) {
       setModel({ id: result.unit.modelId, label: result.unit.model });
       setModelName(result.unit.model);
       setColor(result.unit.color);
+      setBuyingPrice(result.unit.buyingPrice);
       setSuccess("Saved.");
     } catch {
       setError("Could not save — check your connection and try again.");
@@ -236,6 +240,20 @@ export function EditUnitPanel({ grades }: { grades: Grade[] }) {
 
           <Field label="Serial number" hint="Optional — leave blank if the camera has none.">
             <SerialInput value={serialNumber} onValueChange={setSerialNumber} />
+          </Field>
+
+          <Field
+            label="Buying price (£)"
+            hint={unit.buyingPrice ? undefined : "None recorded yet — enter it, or leave blank to skip."}
+          >
+            <Input
+              type="text"
+              inputMode="decimal"
+              autoComplete="off"
+              placeholder="e.g. 85.00"
+              value={buyingPrice}
+              onChange={(e) => setBuyingPrice(e.target.value)}
+            />
           </Field>
 
           <Field label="Note">

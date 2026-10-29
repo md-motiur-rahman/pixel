@@ -1,7 +1,7 @@
 // Hand-written to match supabase/schema.sql. Once the project is linked,
 // replace with: npx supabase gen types typescript --linked > src/types/database.ts
 
-export type Role = "admin" | "tester" | "dispatcher" | "checker" | "data_entry";
+export type Role = "admin" | "tester" | "dispatcher" | "checker" | "data_entry" | "master_stocker";
 export type UnitStatus = "in_stock" | "picked" | "shipped";
 
 type Table<Row, Insert, Update = Partial<Insert>> = {
@@ -19,12 +19,15 @@ export interface Database {
           id: string;
           full_name: string;
           email: string;
+          /** Primary role — kept in step with `roles` by the database. */
           role: Role;
+          /** Every role the person holds (admin first when they have it). */
+          roles: Role[];
           is_active: boolean;
           created_at: string;
         },
-        { id: string; full_name: string; email: string; role?: Role; is_active?: boolean },
-        { full_name?: string; role?: Role; is_active?: boolean }
+        { id: string; full_name: string; email: string; role?: Role; roles?: Role[]; is_active?: boolean },
+        { full_name?: string; role?: Role; roles?: Role[]; is_active?: boolean }
       >;
       brands: Table<{ id: string; name: string }, { name: string }, { name?: string }>;
       models: Table<
@@ -66,6 +69,8 @@ export interface Database {
           tested_at: string;
           picked_by: string | null;
           picked_at: string | null;
+          /** What the camera cost, entered by the tester. Null for cameras tested before this was recorded. */
+          buying_price: number | null;
         },
         {
           sku_line_id: string;
@@ -73,6 +78,7 @@ export interface Database {
           note?: string | null;
           tester_id: string;
           status?: UnitStatus;
+          buying_price?: number | null;
         },
         {
           sku_line_id?: string;
@@ -81,7 +87,20 @@ export interface Database {
           status?: UnitStatus;
           picked_by?: string | null;
           picked_at?: string | null;
+          buying_price?: number | null;
         }
+      >;
+      master_stock: Table<
+        {
+          unit_id: string;
+          picked_by: string | null;
+          picked_at: string;
+          selling_price: number | null;
+          priced_by: string | null;
+          priced_at: string | null;
+        },
+        Record<string, never>,
+        Record<string, never>
       >;
       stock_counts: Table<
         {
@@ -138,6 +157,11 @@ export interface Database {
       };
       set_variant_asins: {
         Args: { p_variant_id: string; p_asins: string[] };
+        Returns: undefined;
+      };
+      has_any_role: { Args: { p_roles: string[] }; Returns: boolean };
+      set_master_stock_details: {
+        Args: { p_unit_id: string; p_selling_price?: number | null; p_serial?: string | null };
         Returns: undefined;
       };
       empty_inventory: { Args: { p_admin_id: string }; Returns: number };

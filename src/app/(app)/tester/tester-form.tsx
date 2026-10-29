@@ -20,6 +20,7 @@ export function TesterForm({ grades }: { grades: Grade[] }) {
   const [color, setColor] = useState("");
   const [gradeId, setGradeId] = useState(grades[0]?.id ?? "");
   const [serialNumber, setSerialNumber] = useState("");
+  const [buyingPrice, setBuyingPrice] = useState("");
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -63,6 +64,7 @@ export function TesterForm({ grades }: { grades: Grade[] }) {
         gradeId,
         serialNumber,
         note,
+        buyingPrice,
         asin: asin || undefined,
       });
 
@@ -147,6 +149,17 @@ export function TesterForm({ grades }: { grades: Grade[] }) {
             </option>
           ))}
         </Select>
+      </Field>
+
+      <Field label="Buying price (£)" hint="Optional for now — what the camera cost, used later to work out profit.">
+        <Input
+          type="text"
+          inputMode="decimal"
+          autoComplete="off"
+          placeholder="e.g. 85.00"
+          value={buyingPrice}
+          onChange={(e) => setBuyingPrice(e.target.value)}
+        />
       </Field>
 
       <Field label="Serial number" hint="Optional — leave blank if the camera has none.">

@@ -19,6 +19,7 @@ import {
   ListPlus,
   Users,
   Warehouse,
+  Boxes,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -61,10 +62,16 @@ const WORKSPACES: Record<Exclude<Role, "admin">, NavEntry> = {
     description: "Add brands, models and ASINs for testers to pick",
     icon: ListPlus,
   },
+  master_stocker: {
+    href: "/master-stock",
+    label: "Master stock",
+    description: "Price the cameras that were picked and add missing serials",
+    icon: Boxes,
+  },
 };
 
 // The workspaces an admin sees in the "Workspaces" group — every role's own screen.
-const ADMIN_WORKSPACE_KEYS = ["tester", "dispatcher", "checker", "data_entry"] as const;
+const ADMIN_WORKSPACE_KEYS = ["tester", "dispatcher", "checker", "data_entry", "master_stocker"] as const;
 
 const ADMIN_PAGES: NavEntry[] = [
   { href: "/admin/inventory", label: "Inventory", description: "See what is in stock right now", icon: Warehouse },
@@ -82,20 +89,35 @@ const ROLE_LABEL: Record<Role, string> = {
   dispatcher: "Dispatcher",
   checker: "Checker",
   data_entry: "Data entry",
+  master_stocker: "Master stocker",
 };
+
+// "Administrator", or the person's roles in a list — they can hold several.
+function roleSummary(roles: Role[]) {
+  return roles.includes("admin") ? ROLE_LABEL.admin : roles.map((role) => ROLE_LABEL[role]).join(", ");
+}
 
 function isActive(entry: NavEntry, pathname: string) {
   return entry.exact ? pathname === entry.href : pathname === entry.href || pathname.startsWith(`${entry.href}/`);
 }
 
-function buildNav(role: Role | null) {
-  const workspaces =
-    role === "admin" ? ADMIN_WORKSPACE_KEYS.map((key) => WORKSPACES[key]) : role ? [WORKSPACES[role]] : [];
+// The workspace keys a set of roles unlocks, in one fixed order. Admins get all of them.
+function workspaceKeys(roles: Role[]): Exclude<Role, "admin">[] {
+  if (roles.includes("admin")) return [...ADMIN_WORKSPACE_KEYS];
+  return ADMIN_WORKSPACE_KEYS.filter((key) => roles.includes(key));
+}
+
+function buildNav(roles: Role[]) {
+  const isAdmin = roles.includes("admin");
+  const workspaces = workspaceKeys(roles).map((key) => WORKSPACES[key]);
   const groups: { heading: string; entries: NavEntry[] }[] = [];
   if (workspaces.length) {
-    groups.push({ heading: role === "admin" ? "Workspaces" : "Your workspace", entries: workspaces });
+    groups.push({
+      heading: isAdmin ? "Workspaces" : workspaces.length > 1 ? "Your workspaces" : "Your workspace",
+      entries: workspaces,
+    });
   }
-  if (role === "admin") groups.push({ heading: "Administration", entries: ADMIN_PAGES });
+  if (isAdmin) groups.push({ heading: "Administration", entries: ADMIN_PAGES });
   return groups;
 }
 
@@ -185,16 +207,16 @@ function NavItem({
 
 function SidebarContent({
   idPrefix,
-  role,
+  roles,
   fullName,
   pathname,
 }: {
   idPrefix: string;
-  role: Role | null;
+  roles: Role[];
   fullName: string | null;
   pathname: string;
 }) {
-  const groups = buildNav(role);
+  const groups = buildNav(roles);
 
   return (
     <>
@@ -234,17 +256,19 @@ function SidebarContent({
       </nav>
 
       <div className="space-y-3 border-t border-line-soft p-3">
-        {role && (
+        {roles.length > 0 && (
           <div className="flex items-center gap-3 rounded-2xl border border-line-soft bg-glass-soft px-3 py-2.5">
             <span
               aria-hidden="true"
               className="flex size-9 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-semibold text-white"
             >
-              {fullName ? initials(fullName) : ROLE_LABEL[role][0]}
+              {fullName ? initials(fullName) : ROLE_LABEL[roles[0]][0]}
             </span>
             <div className="min-w-0">
-              <p className="truncate text-sm font-medium text-fg">{fullName ?? ROLE_LABEL[role]}</p>
-              <p className="truncate text-xs text-fg-subtle">{fullName ? ROLE_LABEL[role] : "Signed in"}</p>
+              <p className="truncate text-sm font-medium text-fg">{fullName ?? roleSummary(roles)}</p>
+              <p className="truncate text-xs text-fg-subtle" title={roleSummary(roles)}>
+                {fullName ? roleSummary(roles) : "Signed in"}
+              </p>
             </div>
           </div>
         )}
@@ -264,36 +288,36 @@ const MOBILE_LABEL: Record<Exclude<Role, "admin">, string> = {
   dispatcher: "Dispatch",
   checker: "Count",
   data_entry: "Entry",
+  master_stocker: "Stock",
 };
 
-function buildTabs(role: Role | null): MobileTab[] {
-  const workspaceKeys: Exclude<Role, "admin">[] = role === "admin" ? [...ADMIN_WORKSPACE_KEYS] : role ? [role] : [];
-  const tabs: MobileTab[] = workspaceKeys.map((key) => ({
+function buildTabs(roles: Role[]): MobileTab[] {
+  const tabs: MobileTab[] = workspaceKeys(roles).map((key) => ({
     href: WORKSPACES[key].href,
     label: MOBILE_LABEL[key],
     icon: WORKSPACES[key].icon,
     match: (pathname) => isActive(WORKSPACES[key], pathname),
   }));
-  if (role === "admin") {
+  if (roles.includes("admin")) {
     tabs.push({ href: ADMIN_HOME, label: "Admin", icon: ShieldCheck, match: (p) => p.startsWith("/admin") });
   }
   return tabs;
 }
 
-function AccountPanel({ role, fullName }: { role: Role | null; fullName: string | null }) {
+function AccountPanel({ roles, fullName }: { roles: Role[]; fullName: string | null }) {
   return (
     <div className="space-y-3">
-      {role && (
+      {roles.length > 0 && (
         <div className="flex items-center gap-3 rounded-2xl border border-line-soft bg-glass-soft px-3 py-3">
           <span
             aria-hidden="true"
             className="flex size-11 shrink-0 items-center justify-center rounded-full bg-accent text-sm font-semibold text-white"
           >
-            {fullName ? initials(fullName) : ROLE_LABEL[role][0]}
+            {fullName ? initials(fullName) : ROLE_LABEL[roles[0]][0]}
           </span>
           <div className="min-w-0">
-            <p className="truncate text-sm font-medium text-fg">{fullName ?? ROLE_LABEL[role]}</p>
-            <p className="truncate text-xs text-fg-subtle">{fullName ? ROLE_LABEL[role] : "Signed in"}</p>
+            <p className="truncate text-sm font-medium text-fg">{fullName ?? roleSummary(roles)}</p>
+            <p className="truncate text-xs text-fg-subtle">{fullName ? roleSummary(roles) : "Signed in"}</p>
           </div>
         </div>
       )}
@@ -302,9 +326,9 @@ function AccountPanel({ role, fullName }: { role: Role | null; fullName: string 
   );
 }
 
-function MobileTabBar({ role, fullName, pathname }: { role: Role | null; fullName: string | null; pathname: string }) {
+function MobileTabBar({ roles, fullName, pathname }: { roles: Role[]; fullName: string | null; pathname: string }) {
   const [accountOpen, setAccountOpen] = useState(false);
-  const tabs = buildTabs(role);
+  const tabs = buildTabs(roles);
 
   const itemClass = (active: boolean) =>
     cn(
@@ -362,7 +386,7 @@ function MobileTabBar({ role, fullName, pathname }: { role: Role | null; fullNam
             <VisuallyHidden.Root>
               <Dialog.Title>Account</Dialog.Title>
             </VisuallyHidden.Root>
-            <AccountPanel role={role} fullName={fullName} />
+            <AccountPanel roles={roles} fullName={fullName} />
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog.Root>
@@ -443,15 +467,15 @@ function AdminMenu({ pathname }: { pathname: string }) {
   );
 }
 
-function currentPageLabel(role: Role | null, pathname: string) {
-  const entries = buildNav(role).flatMap((g) => g.entries);
+function currentPageLabel(roles: Role[], pathname: string) {
+  const entries = buildNav(roles).flatMap((g) => g.entries);
   return entries.find((e) => isActive(e, pathname))?.label ?? "Pixel Direct";
 }
 
-export function AppShell({ role, children }: { role: Role | null; children: React.ReactNode }) {
+export function AppShell({ roles, children }: { roles: Role[]; children: React.ReactNode }) {
   const pathname = usePathname();
   const fullName = useFullName();
-  const inAdmin = role === "admin" && pathname.startsWith("/admin");
+  const inAdmin = roles.includes("admin") && pathname.startsWith("/admin");
 
   return (
     <div className="min-h-dvh print:min-h-0 sm:flex">
@@ -469,19 +493,19 @@ export function AppShell({ role, children }: { role: Role | null; children: Reac
             >
               <Aperture aria-hidden="true" className="size-3.5 text-white" />
             </span>
-            <p className="truncate text-sm font-semibold text-fg">{currentPageLabel(role, pathname)}</p>
+            <p className="truncate text-sm font-semibold text-fg">{currentPageLabel(roles, pathname)}</p>
           </div>
         )}
       </header>
 
       {/* Desktop sidebar */}
       <aside className="glass sticky top-0 hidden h-dvh w-72 shrink-0 flex-col rounded-none border-y-0 border-l-0 print:hidden sm:flex">
-        <SidebarContent idPrefix="desktop" role={role} fullName={fullName} pathname={pathname} />
+        <SidebarContent idPrefix="desktop" roles={roles} fullName={fullName} pathname={pathname} />
       </aside>
 
       <main className="min-w-0 flex-1 px-4 pt-5 pb-28 print:m-0 print:block print:p-0 sm:px-8 sm:py-8 lg:flex lg:flex-col">{children}</main>
 
-      <MobileTabBar role={role} fullName={fullName} pathname={pathname} />
+      <MobileTabBar roles={roles} fullName={fullName} pathname={pathname} />
     </div>
   );
 }

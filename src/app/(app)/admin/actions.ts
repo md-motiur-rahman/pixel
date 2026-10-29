@@ -3,31 +3,58 @@
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin, redirectOrigin } from "@/lib/admin-auth";
+import { isRole, sortRoles } from "@/lib/roles";
 import type { Role } from "@/types/database";
 
 type ActionResult = { ok: true } | { ok: false; error: string };
 
-export async function updateUserRole(userId: string, role: Role): Promise<ActionResult> {
+// A person can hold several roles. Whatever the browser sends is reduced to real,
+// distinct roles in a fixed order (admin first), and at least one is required.
+function cleanRoles(input: unknown): { ok: true; roles: Role[] } | { ok: false; error: string } {
+  const roles = sortRoles(Array.isArray(input) ? input.filter(isRole) : []);
+  if (roles.length === 0) return { ok: false, error: "Pick at least one role." };
+  return { ok: true, roles };
+}
+
+export async function updateUserRoles(userId: string, roles: Role[]): Promise<ActionResult> {
   const admin = await requireAdmin();
   if (!admin.ok) return admin;
-  if (userId === admin.userId && role !== "admin") {
+
+  const checked = cleanRoles(roles);
+  if (!checked.ok) return checked;
+  if (userId === admin.userId && !checked.roles.includes("admin")) {
     return { ok: false, error: "You can't remove your own admin role." };
   }
 
-  const { error } = await admin.supabase.from("profiles").update({ role }).eq("id", userId);
-  if (error) return { ok: false, error: error.message };
+  // The database keeps the person's primary `role` in step with this list.
+  const { error } = await admin.supabase.from("profiles").update({ roles: checked.roles }).eq("id", userId);
+  if (error) {
+    // 42703 / PGRST204: there is no `roles` column — the migration hasn't been run.
+    if (error.code === "42703" || error.code === "PGRST204") {
+      return {
+        ok: false,
+        error: "Several roles need a database update — run supabase/migration_9_multi_role_master_stock.sql in Supabase.",
+      };
+    }
+    return { ok: false, error: error.message };
+  }
   revalidatePath("/admin");
   return { ok: true };
 }
 
-export async function inviteStaff(email: string, fullName: string, role: Role): Promise<ActionResult> {
+export async function inviteStaff(email: string, fullName: string, roles: Role[]): Promise<ActionResult> {
   const admin = await requireAdmin();
   if (!admin.ok) return admin;
 
+  const checked = cleanRoles(roles);
+  if (!checked.ok) return checked;
+
   const redirectTo = `${await redirectOrigin()}/set-password`;
   const adminClient = createAdminClient();
+  // `role` (the primary one) is kept alongside `roles` for a database that
+  // hasn't had the multi-role migration run yet.
   const { error } = await adminClient.auth.admin.inviteUserByEmail(email.trim(), {
-    data: { full_name: fullName.trim(), role },
+    data: { full_name: fullName.trim(), role: checked.roles[0], roles: checked.roles },
     redirectTo,
   });
 

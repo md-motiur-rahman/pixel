@@ -1,14 +1,15 @@
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthUser } from "@/lib/supabase/auth-user";
+import { fetchProfileRoles } from "@/lib/roles";
 
 export async function requireAdmin() {
   const supabase = await createClient();
   const user = await getAuthUser(supabase);
   if (!user) return { ok: false as const, error: "Not signed in." };
 
-  const { data: caller } = await supabase.from("profiles").select("role").eq("id", user.id).single();
-  if (caller?.role !== "admin") return { ok: false as const, error: "Only an admin can do that." };
+  const caller = await fetchProfileRoles(supabase, user.id);
+  if (!caller?.roles.includes("admin")) return { ok: false as const, error: "Only an admin can do that." };
 
   return { ok: true as const, supabase, userId: user.id };
 }

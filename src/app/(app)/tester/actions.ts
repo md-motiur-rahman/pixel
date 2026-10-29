@@ -5,6 +5,7 @@ import { escapeLikePattern } from "@/lib/escape-like";
 import { findOrCreate } from "@/lib/find-or-create";
 import { canonicalColor } from "@/lib/colors";
 import { getAuthUser } from "@/lib/supabase/auth-user";
+import { parsePrice } from "@/lib/money";
 
 export type CreateTestedUnitInput = {
   brandId: string | null;
@@ -15,6 +16,8 @@ export type CreateTestedUnitInput = {
   gradeId: string;
   serialNumber: string;
   note: string;
+  /** What the camera cost, as typed. Optional for now — blank saves no price. */
+  buyingPrice: string;
   /** One of the model's ASINs (from data entry), picked from the dropdown. */
   asin?: string;
 };
@@ -38,6 +41,16 @@ export async function createTestedUnit(
 
   if (!brandName || !modelName || !color || !input.gradeId) {
     return { ok: false, error: "Brand, model, color and grade are required." };
+  }
+
+  // Optional for now (to be made required later): blank saves no price, but anything
+  // typed must be a real amount. Checked up front, like the serial below, so a bad
+  // price can't leave a new brand/model/color behind.
+  let buyingPrice: number | null = null;
+  if (input.buyingPrice.trim()) {
+    const price = parsePrice(input.buyingPrice, "buying price");
+    if (!price.ok) return { ok: false, error: price.error };
+    buyingPrice = price.value;
   }
 
   // 0. Serial first (when there is one) — a duplicate would otherwise only fail at
@@ -139,6 +152,7 @@ export async function createTestedUnit(
       serial_number: serialNumber || null,
       note: input.note.trim() || null,
       tester_id: user.id,
+      ...(buyingPrice === null ? {} : { buying_price: buyingPrice }),
     })
     .select("id")
     .single();
@@ -146,6 +160,13 @@ export async function createTestedUnit(
   if (unitError) {
     if (unitError.code === "23505") {
       return { ok: false, error: `Serial number "${serialNumber}" is already in the system.` };
+    }
+    // 42703 / PGRST204: the buying_price column doesn't exist — the migration hasn't been run.
+    if (unitError.code === "42703" || unitError.code === "PGRST204") {
+      return {
+        ok: false,
+        error: "Saving a buying price needs a database update — run supabase/migration_9_multi_role_master_stock.sql in Supabase.",
+      };
     }
     return { ok: false, error: `Could not save unit: ${unitError.message}` };
   }

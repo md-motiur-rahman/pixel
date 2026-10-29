@@ -1,14 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { getAuthUser } from "@/lib/supabase/auth-user";
-
-const ROLE_HOME: Record<string, string> = {
-  admin: "/admin/inventory",
-  tester: "/tester",
-  dispatcher: "/dispatcher",
-  checker: "/checker",
-  data_entry: "/data-entry",
-};
+import { fetchProfileRoles, hasRole, homeFor, ROLE_HOME } from "@/lib/roles";
+import type { Role } from "@/types/database";
 
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -59,17 +53,12 @@ export async function updateSession(request: NextRequest) {
   // Fetch the profile once per request — used for login-redirect, role
   // gating, and an immediate cutoff for deactivated staff (their auth ban
   // only blocks new sign-ins, not an already-issued token until it refreshes).
-  let profile: { role: string; is_active: boolean } | null = null;
+  let profile: { roles: Role[]; isActive: boolean } | null = null;
   if (user) {
-    const { data } = await supabase
-      .from("profiles")
-      .select("role, is_active")
-      .eq("id", user.id)
-      .single();
-    profile = data;
+    profile = await fetchProfileRoles(supabase, user.id);
   }
 
-  if (user && profile && !profile.is_active && !isLoginPage) {
+  if (user && profile && !profile.isActive && !isLoginPage) {
     await supabase.auth.signOut();
     const url = request.nextUrl.clone();
     url.pathname = "/login";
@@ -80,18 +69,19 @@ export async function updateSession(request: NextRequest) {
   // them — with no profile row, / sends them straight back here (a loop).
   if (user && isLoginPage && profile) {
     const url = request.nextUrl.clone();
-    url.pathname = (profile && ROLE_HOME[profile.role]) || "/";
+    url.pathname = homeFor(profile.roles) || "/";
     return NextResponse.redirect(url);
   }
 
-  // Section-level role gating: each section belongs to one role (admins can open all of them).
+  // Section-level role gating: each section belongs to one role. Someone can open
+  // every section of the roles they hold (admins can open all of them).
   if (user && profile) {
-    const section = Object.entries(ROLE_HOME).find(
+    const section = (Object.entries(ROLE_HOME) as [Role, string][]).find(
       ([, prefix]) => path === prefix || path.startsWith(`${prefix}/`)
     )?.[0];
-    if (section && profile.role !== section && profile.role !== "admin") {
+    if (section && !hasRole(profile.roles, section)) {
       const url = request.nextUrl.clone();
-      url.pathname = ROLE_HOME[profile.role] || "/login";
+      url.pathname = homeFor(profile.roles) || "/login";
       return NextResponse.redirect(url);
     }
   }

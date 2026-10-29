@@ -6,6 +6,7 @@ import { getAuthUser } from "@/lib/supabase/auth-user";
 import { escapeLikePattern } from "@/lib/escape-like";
 import { findOrCreate } from "@/lib/find-or-create";
 import { validateAsins } from "@/lib/asin";
+import { fetchProfileRoles, hasRole } from "@/lib/roles";
 
 // A model can have several ASINs (Amazon lists one per colour), so this list is
 // longer than the 3 a single model + colour row can hold.
@@ -26,8 +27,8 @@ async function requireDataEntry() {
   const supabase = await createClient();
   const user = await getAuthUser(supabase);
   if (!user) return { ok: false as const, error: "Not signed in." };
-  const { data } = await supabase.from("profiles").select("role").eq("id", user.id).single();
-  if (data?.role !== "data_entry" && data?.role !== "admin") {
+  const profile = await fetchProfileRoles(supabase, user.id);
+  if (!profile || !hasRole(profile.roles, "data_entry")) {
     return { ok: false as const, error: "Only data entry staff can do that." };
   }
   return { ok: true as const, supabase, userId: user.id };

@@ -1,15 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import type { Role } from "@/types/database";
 import { getAuthUser } from "@/lib/supabase/auth-user";
-
-const ROLE_HOME: Record<Role, string> = {
-  admin: "/admin/inventory",
-  tester: "/tester",
-  dispatcher: "/dispatcher",
-  checker: "/checker",
-  data_entry: "/data-entry",
-};
+import { fetchProfileRoles, homeFor } from "@/lib/roles";
 
 export default async function Home() {
   const supabase = await createClient();
@@ -17,11 +9,6 @@ export default async function Home() {
 
   if (!user) redirect("/login");
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-
-  redirect(profile ? ROLE_HOME[profile.role] : "/login");
+  const profile = await fetchProfileRoles(supabase, user.id);
+  redirect((profile && homeFor(profile.roles)) || "/login");
 }

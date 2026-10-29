@@ -6,6 +6,7 @@ import { findOrCreate } from "@/lib/find-or-create";
 import { canonicalColor } from "@/lib/colors";
 import { singleSerialMatch } from "@/lib/serial";
 import { getAuthUser } from "@/lib/supabase/auth-user";
+import { parsePrice } from "@/lib/money";
 
 export type EditableUnit = {
   id: string;
@@ -19,11 +20,13 @@ export type EditableUnit = {
   serialNumber: string;
   note: string | null;
   modelVariantId: string;
+  /** What the camera cost, as text for the form; empty when none was recorded. */
+  buyingPrice: string;
 };
 
 type FindResult = { ok: true; unit: EditableUnit } | { ok: false; error: string };
 
-const SELECT = `id, serial_number, note,
+const SELECT = `id, serial_number, note, buying_price,
   sku_lines ( model_variant_id, grade_id, grades ( code ),
     model_variants ( color, models ( id, name, brand_id, brands ( name ) ) ) )`;
 
@@ -31,6 +34,7 @@ function toEditableUnit(data: {
   id: string;
   serial_number: string | null;
   note: string | null;
+  buying_price: number | null;
   sku_lines: unknown;
 }): EditableUnit {
   const skuLine = data.sku_lines as unknown as {
@@ -54,6 +58,7 @@ function toEditableUnit(data: {
     serialNumber: data.serial_number ?? "",
     note: data.note,
     modelVariantId: skuLine.model_variant_id,
+    buyingPrice: data.buying_price === null ? "" : data.buying_price.toFixed(2),
   };
 }
 
@@ -92,6 +97,8 @@ export type UpdateUnitDetailsInput = {
   gradeId: string;
   serialNumber: string;
   note: string;
+  /** Blank leaves the recorded buying price as it is. */
+  buyingPrice: string;
 };
 
 export async function updateUnitDetails(
@@ -109,6 +116,14 @@ export async function updateUnitDetails(
 
   if (!brandName || !modelName || !color || !input.gradeId) {
     return { ok: false, error: "Brand, model, color and grade are required." };
+  }
+
+  // Blank = keep what's recorded; anything typed must be a real amount.
+  let buyingPrice: number | undefined;
+  if (input.buyingPrice.trim()) {
+    const price = parsePrice(input.buyingPrice, "buying price");
+    if (!price.ok) return { ok: false, error: price.error };
+    buyingPrice = price.value;
   }
 
   // Check the serial first (when there is one), so a clash doesn't leave half-created
@@ -192,7 +207,12 @@ export async function updateUnitDetails(
 
   const { data: updated, error } = await supabase
     .from("units")
-    .update({ sku_line_id: skuLineId, serial_number: serialNumber || null, note: input.note.trim() || null })
+    .update({
+      sku_line_id: skuLineId,
+      serial_number: serialNumber || null,
+      note: input.note.trim() || null,
+      ...(buyingPrice === undefined ? {} : { buying_price: buyingPrice }),
+    })
     .eq("id", unitId)
     .select("id");
 
