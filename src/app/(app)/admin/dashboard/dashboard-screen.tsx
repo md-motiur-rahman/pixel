@@ -12,7 +12,7 @@ import {
   PoundSterling,
   RefreshCw,
   ShoppingBag,
-  Tag,
+  Store,
   Warehouse,
   Wrench,
 } from "lucide-react";
@@ -45,6 +45,7 @@ const MAX_DAYS = 366;
 // Soft, theme-aware fills — the strong accent colours at a calmer strength.
 const TESTED_FILL = "bg-accent/75";
 const SOLD_FILL = "bg-success/70";
+const LISTED_FILL = "bg-warn/60";
 const GRADE_FILLS = ["bg-accent/80", "bg-accent/50", "bg-accent/30", "bg-accent/20"];
 
 function startOfDay(d: Date) {
@@ -143,7 +144,7 @@ function initials(name: string) {
 }
 
 type Loaded = Extract<DashboardData, { ok: true }>;
-type Totals = { tested: number; sold: number; value: number; priced: number };
+type Totals = { tested: number; sold: number; value: number; priced: number; listed: number; repaired: number };
 
 function totalsOf(d: Loaded): Totals {
   const priced = d.sold.filter((s) => s.price !== null);
@@ -152,7 +153,17 @@ function totalsOf(d: Loaded): Totals {
     sold: d.sold.length,
     value: priced.reduce((sum, s) => sum + (s.price ?? 0), 0),
     priced: priced.length,
+    listed: d.amazon?.listed.length ?? 0,
+    repaired: d.amazon?.repaired ?? 0,
   };
+}
+
+type Series = "tested" | "sold" | "listed";
+
+// Shows or hides one chart series — but never hides the last one showing.
+function toggleSeries(hidden: Record<Series, boolean>, key: Series): Record<Series, boolean> {
+  const next = { ...hidden, [key]: !hidden[key] };
+  return Object.values(next).every(Boolean) ? hidden : next;
 }
 
 export function DashboardScreen() {
@@ -164,7 +175,7 @@ export function DashboardScreen() {
   const [loaded, setLoaded] = useState<{ range: Range; period: Period } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [hidden, setHidden] = useState<{ tested: boolean; sold: boolean }>({ tested: false, sold: false });
+  const [hidden, setHidden] = useState<Record<Series, boolean>>({ tested: false, sold: false, listed: false });
   const seqRef = useRef(0);
 
   const range = useMemo(() => rangeFor(period, customFrom, customTo), [period, customFrom, customTo]);
@@ -216,7 +227,7 @@ export function DashboardScreen() {
           : unit === "day"
             ? longDay.format(s)
             : bucketLabel(s, unit),
-      values: [0, 0],
+      values: [0, 0, 0],
     }));
     for (const t of data.tested) {
       const i = bucketIndex(new Date(t.at), starts);
@@ -225,6 +236,10 @@ export function DashboardScreen() {
     for (const s of data.sold) {
       const i = bucketIndex(new Date(s.at), starts);
       if (i >= 0) buckets[i].values[1]++;
+    }
+    for (const l of data.amazon?.listed ?? []) {
+      const i = bucketIndex(new Date(l.at), starts);
+      if (i >= 0) buckets[i].values[2]++;
     }
 
     const testers = new Map<string, { count: number; grades: Record<string, number> }>();
@@ -245,6 +260,11 @@ export function DashboardScreen() {
       }
       stockers.set(key, row);
     }
+    const listers = new Map<string, { count: number }>();
+    for (const l of data.amazon?.listed ?? []) {
+      const key = l.by ?? "";
+      listers.set(key, { count: (listers.get(key)?.count ?? 0) + 1 });
+    }
     const nameOf = (id: string) => (id ? (data.names[id] ?? "Unknown") : "Not recorded");
     const byCount = (a: { count: number; name: string }, b: { count: number; name: string }) =>
       b.count - a.count || a.name.localeCompare(b.name);
@@ -255,6 +275,7 @@ export function DashboardScreen() {
       totals: totalsOf(data),
       testers: [...testers.entries()].map(([id, row]) => ({ id, name: nameOf(id), ...row })).sort(byCount),
       stockers: [...stockers.entries()].map(([id, row]) => ({ id, name: nameOf(id), ...row })).sort(byCount),
+      listers: [...listers.entries()].map(([id, row]) => ({ id, name: nameOf(id), ...row })).sort(byCount),
     };
   }, [data, loaded]);
 
@@ -364,9 +385,34 @@ export function DashboardScreen() {
               compared={compared}
             />
             <Kpi
+              icon={Store}
+              tone="text-warn bg-warn-soft"
+              label="Listed on Amazon"
+              value={view ? (data?.amazon ? String(view.totals.listed) : "—") : null}
+              now={data?.amazon ? view?.totals.listed : undefined}
+              before={previous?.listed}
+              compared={compared}
+              footnote={
+                data?.amazon && data.amazon.regraded > 0
+                  ? `${data.amazon.regraded} regraded while checking`
+                  : undefined
+              }
+            />
+            <Kpi
+              icon={Wrench}
+              tone="text-fg-muted bg-glass-hover"
+              label="Repaired"
+              value={view ? (data?.amazon ? String(view.totals.repaired) : "—") : null}
+              now={data?.amazon ? view?.totals.repaired : undefined}
+              before={previous?.repaired}
+              compared={compared}
+              footnote="Graded out of Repair"
+            />
+            <Kpi
               icon={PoundSterling}
               tone="text-success bg-success-soft"
               label="Sales value"
+              className="col-span-2"
               value={view ? formatPrice(view.totals.value) : null}
               now={view?.totals.value}
               before={previous?.value}
@@ -377,15 +423,6 @@ export function DashboardScreen() {
                   : undefined
               }
             />
-            <Kpi
-              icon={Tag}
-              tone="text-warn bg-warn-soft"
-              label="Avg. selling price"
-              value={view ? (view.totals.priced ? formatPrice(view.totals.value / view.totals.priced) : "—") : null}
-              now={view && view.totals.priced ? view.totals.value / view.totals.priced : undefined}
-              before={previous && previous.priced ? previous.value / previous.priced : undefined}
-              compared={compared}
-            />
           </div>
         </div>
 
@@ -395,24 +432,31 @@ export function DashboardScreen() {
             <div>
               <h2 className="text-[15px] font-semibold text-fg">Activity</h2>
               <p className="mt-0.5 text-xs text-fg-subtle">
-                Tested and sold {view ? (view.unit === "hour" ? "per hour" : view.unit === "day" ? "per day" : "per month") : ""}
+                Tested, sold and listed {view ? (view.unit === "hour" ? "per hour" : view.unit === "day" ? "per day" : "per month") : ""}
               </p>
             </div>
-            <div className="flex gap-2" role="group" aria-label="Show on chart">
+            <div className="flex flex-wrap gap-2" role="group" aria-label="Show on chart">
               {/* At least one series always stays on. */}
               <SeriesToggle
                 label="Tested"
                 total={view?.totals.tested}
                 color={TESTED_FILL}
                 on={!hidden.tested}
-                onToggle={() => setHidden((h) => ({ tested: !h.tested, sold: h.tested ? h.sold : false }))}
+                onToggle={() => setHidden((h) => toggleSeries(h, "tested"))}
               />
               <SeriesToggle
                 label="Sold"
                 total={view?.totals.sold}
                 color={SOLD_FILL}
                 on={!hidden.sold}
-                onToggle={() => setHidden((h) => ({ sold: !h.sold, tested: h.sold ? h.tested : false }))}
+                onToggle={() => setHidden((h) => toggleSeries(h, "sold"))}
+              />
+              <SeriesToggle
+                label="Listed"
+                total={view?.totals.listed}
+                color={LISTED_FILL}
+                on={!hidden.listed}
+                onToggle={() => setHidden((h) => toggleSeries(h, "listed"))}
               />
             </div>
           </div>
@@ -422,6 +466,7 @@ export function DashboardScreen() {
               series={[
                 { name: "Tested", color: TESTED_FILL, hidden: hidden.tested },
                 { name: "Sold", color: SOLD_FILL, hidden: hidden.sold },
+                { name: "Listed", color: LISTED_FILL, hidden: hidden.listed },
               ]}
             />
           ) : (
@@ -430,7 +475,7 @@ export function DashboardScreen() {
         </Card>
 
         {/* Per person */}
-        <div className="grid gap-3 sm:gap-4 lg:grid-cols-2">
+        <div className="grid gap-3 sm:gap-4 lg:grid-cols-3">
           <Leaderboard
             title="Testers"
             subtitle="Items tested"
@@ -456,6 +501,18 @@ export function DashboardScreen() {
               name: s.name,
               count: s.count,
               detail: s.priced > 0 ? `${formatPrice(s.value)} · ${s.priced} priced` : "No prices entered",
+            }))}
+          />
+          <Leaderboard
+            title="Amazon listers"
+            subtitle="Items listed"
+            empty={data && !data.amazon ? "Run migration 17 to start tracking." : "No items listed in this period."}
+            fill={LISTED_FILL}
+            rows={view?.listers.map((l) => ({
+              id: l.id || "none",
+              name: l.name,
+              count: l.count,
+              detail: "Checked and listed",
             }))}
           />
         </div>
@@ -513,8 +570,19 @@ function StockCard({ data, className }: { data: Loaded | null; className?: strin
       </div>
 
       {/* Not part of the inventory count */}
-      <div className="mt-auto grid grid-cols-3 gap-2 pt-5">
-        <SideStat icon={Hourglass} label="On hold" value={data?.stock.onHold} title="Picked, waiting for the master stocker" />
+      <div className="mt-auto grid grid-cols-2 gap-2 pt-5">
+        <SideStat
+          icon={Store}
+          label="To list on Amazon"
+          value={data?.amazon?.waiting}
+          title="Tested or repaired, waiting for the Amazon lister"
+        />
+        <SideStat
+          icon={Hourglass}
+          label="To be released"
+          value={data?.stock.onHold}
+          title="Picked, waiting for the master stocker to accept or refuse"
+        />
         <SideStat icon={Wrench} label="Repair" value={data?.stock.repair} title="Grade D" />
         <SideStat icon={Archive} label="Clearance" value={data?.stock.clearance} title="Grade E" />
       </div>
@@ -535,9 +603,9 @@ function SideStat({
 }) {
   return (
     <div className="min-w-0 rounded-2xl bg-glass-soft px-3 py-2.5" title={title}>
-      <p className="flex items-center gap-1 text-[11px] text-fg-subtle">
-        <Icon aria-hidden="true" className="size-3 shrink-0" />
-        <span className="truncate">{label}</span>
+      <p className="flex items-start gap-1 text-[11px] leading-tight text-fg-subtle">
+        <Icon aria-hidden="true" className="mt-px size-3 shrink-0" />
+        <span>{label}</span>
       </p>
       <p className="mt-1 text-base font-semibold tabular-nums text-fg">{value ?? "—"}</p>
     </div>
@@ -553,6 +621,7 @@ function Kpi({
   before,
   compared,
   footnote,
+  className,
 }: {
   icon: typeof Warehouse;
   tone: string;
@@ -562,9 +631,10 @@ function Kpi({
   before: number | undefined;
   compared: string;
   footnote?: string;
+  className?: string;
 }) {
   return (
-    <Card className="flex min-w-0 flex-col p-3.5 sm:p-5">
+    <Card className={cn("flex min-w-0 flex-col p-3.5 sm:p-5", className)}>
       <div className="flex items-center justify-between gap-2">
         <p className="truncate text-[13px] font-medium text-fg-muted">{label}</p>
         <span className={cn("hidden size-8 shrink-0 items-center justify-center rounded-xl min-[400px]:flex", tone)}>

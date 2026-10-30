@@ -13,6 +13,7 @@ export function buildLabelZpl({
   labelLine1,
   labelLine2,
   labelLine3,
+  labelLine4 = "",
   serialNumber,
 }: {
   unitId: string;
@@ -20,6 +21,8 @@ export function buildLabelZpl({
   labelLine1: string;
   labelLine2: string;
   labelLine3: string;
+  /** "Tested Amira · Checked Grace" — empty leaves the line off. */
+  labelLine4?: string;
   serialNumber: string;
 }): string {
   const brand = sanitizeZplText(brandName);
@@ -27,6 +30,8 @@ export function buildLabelZpl({
   const line2 = sanitizeZplText(labelLine2);
   const line3 = sanitizeZplText(labelLine3);
   const serial = sanitizeZplText(serialNumber);
+  // The label font has no "·" — use a plain separator on paper.
+  const line4 = sanitizeZplText(labelLine4).replace(/ · /g, " / ");
 
   // 2 x 1 in label at 203 dpi (Zebra GK420D's native resolution) = 406 x 203
   // dots. Matches the fixed 2x1in size the printable-label preview uses —
@@ -48,6 +53,9 @@ export function buildLabelZpl({
     `^FO160,126^A0N,24,24^FD${line3}^FS`,
     // No serial number? Leave that line off rather than print "SN ".
     ...(serial ? [`^FO160,156^A0N,20,20^FDSN ${serial}^FS`] : []),
+    // Who tested / checked it: one small line along the bottom, clipped to the
+    // label width (^FB … 1 line) so a long name can't run off the edge.
+    ...(line4 ? [`^FO160,180^FB240,1,0,L,0^A0N,17,17^FD${line4}^FS`] : []),
     "^XZ",
   ].join("\n");
 }

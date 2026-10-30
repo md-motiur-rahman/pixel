@@ -98,7 +98,7 @@ export function SerialLookup() {
             </p>
             {unit.note && <p className="mt-1 text-xs text-fg-subtle">Note: {unit.note}</p>}
           </div>
-          <Button onClick={() => router.push(`/tester/print/${unit.id}`)} className="shrink-0">
+          <Button onClick={() => router.push(`/label/${unit.id}?from=inventory`)} className="shrink-0">
             <Printer aria-hidden="true" />
             Reprint label
           </Button>

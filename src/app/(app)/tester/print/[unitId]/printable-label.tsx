@@ -14,6 +14,7 @@ export function PrintableLabel({
   labelLine1,
   labelLine2,
   labelLine3,
+  labelLine4 = "",
   serialNumber,
 }: {
   qrDataUrl: string;
@@ -21,6 +22,8 @@ export function PrintableLabel({
   labelLine1: string;
   labelLine2: string;
   labelLine3: string;
+  /** "Tested Amira · Checked Grace" — empty leaves the line off. */
+  labelLine4?: string;
   serialNumber: string;
 }) {
   return (
@@ -43,6 +46,7 @@ export function PrintableLabel({
           <p className="truncate text-[12px] font-semibold leading-tight">{labelLine2}</p>
           <p className="text-[11px] leading-tight">{labelLine3}</p>
           {serialNumber && <p className="truncate text-[10px] leading-tight text-neutral-500">SN {serialNumber}</p>}
+          {labelLine4 && <p className="truncate text-[8px] leading-tight text-neutral-600">{labelLine4}</p>}
         </div>
       </div>
 

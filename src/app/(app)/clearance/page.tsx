@@ -9,6 +9,7 @@ export default async function ClearancePage() {
       title="Clearance"
       gradeLabel={`Grade ${CLEARANCE_GRADE}`}
       description="Items graded E — Clearance. They're kept out of the inventory and listed here."
+      labelFrom="clearance"
       result={result}
     />
   );

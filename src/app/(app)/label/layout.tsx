@@ -1,0 +1,5 @@
+// Form screens sit in the middle of the display on large screens (lg:my-auto
+// inside the shell's flex column); taller content just flows from the top.
+export default function LabelLayout({ children }: { children: React.ReactNode }) {
+  return <div className="mx-auto w-full max-w-xl lg:my-auto print:my-0 print:max-w-none">{children}</div>;
+}

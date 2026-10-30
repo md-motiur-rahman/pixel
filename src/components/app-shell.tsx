@@ -19,6 +19,7 @@ import {
   ListPlus,
   Users,
   Warehouse,
+  Store,
   LayoutDashboard,
   Boxes,
   Wrench,
@@ -29,6 +30,7 @@ import {
 import { cn } from "@/lib/cn";
 import { createClient } from "@/lib/supabase/client";
 import type { Role } from "@/types/database";
+import { hasRole } from "@/lib/roles";
 import { SignOutButton } from "@/components/sign-out-button";
 
 type NavEntry = {
@@ -84,6 +86,12 @@ const WORKSPACES: Record<Exclude<Role, "admin">, NavEntry> = {
     description: "Items graded E, for clearance",
     icon: Tag,
   },
+  amazon: {
+    href: "/amazon",
+    label: "Amazon listing",
+    description: "Check, regrade and list tested items on Amazon",
+    icon: Store,
+  },
 };
 
 // The workspaces an admin sees in the "Workspaces" group — every role's own screen.
@@ -95,6 +103,7 @@ const ADMIN_WORKSPACE_KEYS = [
   "master_stocker",
   "repair",
   "clearance",
+  "amazon",
 ] as const;
 
 const ADMIN_PAGES: NavEntry[] = [
@@ -117,6 +126,7 @@ const ROLE_LABEL: Record<Role, string> = {
   master_stocker: "Master stocker",
   repair: "Repair",
   clearance: "Clearance",
+  amazon: "Amazon lister",
 };
 
 // "Administrator", or the person's roles in a list — they can hold several.
@@ -131,7 +141,7 @@ function isActive(entry: NavEntry, pathname: string) {
 // The workspace keys a set of roles unlocks, in one fixed order. Admins get all of them.
 function workspaceKeys(roles: Role[]): Exclude<Role, "admin">[] {
   if (roles.includes("admin")) return [...ADMIN_WORKSPACE_KEYS];
-  return ADMIN_WORKSPACE_KEYS.filter((key) => roles.includes(key));
+  return ADMIN_WORKSPACE_KEYS.filter((key) => hasRole(roles, key));
 }
 
 function buildNav(roles: Role[]) {
@@ -319,6 +329,7 @@ const MOBILE_LABEL: Record<Exclude<Role, "admin">, string> = {
   master_stocker: "Stock",
   repair: "Repair",
   clearance: "Clear",
+  amazon: "Amazon",
 };
 
 // Tabs shown in the bar itself; any more go in the "More" sheet.

@@ -20,6 +20,19 @@ export type StockSnapshot = {
 // "today" means today where the admin is.
 export type TestedEvent = { at: string; by: string; grade: string };
 export type SoldEvent = { at: string; by: string | null; price: number | null };
+export type ListedEvent = { at: string; by: string | null };
+
+// Amazon listing. Null until supabase/migration_17 has been run.
+export type AmazonStats = {
+  /** Waiting to be listed right now. */
+  waiting: number;
+  /** Listed in the period. */
+  listed: ListedEvent[];
+  /** Grade changed by the Amazon lister in the period. */
+  regraded: number;
+  /** Repairs finished in the period (graded out of Repair). */
+  repaired: number;
+};
 
 export type DashboardData =
   | {
@@ -27,6 +40,7 @@ export type DashboardData =
       stock: StockSnapshot;
       tested: TestedEvent[];
       sold: SoldEvent[];
+      amazon: AmazonStats | null;
       /** Staff id → name, for everyone who appears above. */
       names: Record<string, string>;
     }
@@ -45,7 +59,7 @@ export async function loadDashboard(fromIso: string, toIso: string): Promise<Das
     return { ok: false, error: "Pick a valid date range." };
   }
 
-  const [lines, held, tested, sold, profiles] = await Promise.all([
+  const [lines, held, tested, sold, profiles, amazon] = await Promise.all([
     fetchAllPages(async (start, end) =>
       supabase.from("sku_lines").select("quantity, grades ( code )").order("id").range(start, end)
     ),
@@ -70,6 +84,7 @@ export async function loadDashboard(fromIso: string, toIso: string): Promise<Das
         .range(start, end)
     ),
     supabase.from("profiles").select("id, full_name, email"),
+    loadAmazonStats(supabase, from, to),
   ]);
 
   if (!lines.ok) return { ok: false, error: lines.error };
@@ -109,5 +124,44 @@ export async function loadDashboard(fromIso: string, toIso: string): Promise<Das
     names[p.id] = p.full_name?.trim() || p.email || "Unknown";
   }
 
-  return { ok: true, stock, tested: testedEvents, sold: soldEvents, names };
+  return { ok: true, stock, tested: testedEvents, sold: soldEvents, amazon, names };
+}
+
+// Missing tables (migration_17 not run yet) → null, so the rest still shows.
+async function loadAmazonStats(
+  supabase: Extract<Awaited<ReturnType<typeof requireAdmin>>, { ok: true }>["supabase"],
+  from: Date,
+  to: Date
+): Promise<AmazonStats | null> {
+  const [waiting, listed, changes] = await Promise.all([
+    supabase.from("amazon_queue").select("unit_id", { count: "exact", head: true }).is("listed_at", null),
+    fetchAllPages(async (start, end) =>
+      supabase
+        .from("amazon_queue")
+        .select("listed_at, listed_by")
+        .not("listed_at", "is", null)
+        .gte("listed_at", from.toISOString())
+        .lt("listed_at", to.toISOString())
+        .order("listed_at")
+        .range(start, end)
+    ),
+    fetchAllPages(async (start, end) =>
+      supabase
+        .from("grade_changes")
+        .select("reason")
+        .in("reason", ["amazon_check", "repair"])
+        .gte("changed_at", from.toISOString())
+        .lt("changed_at", to.toISOString())
+        .order("changed_at")
+        .range(start, end)
+    ),
+  ]);
+  if (waiting.error || !listed.ok || !changes.ok) return null;
+
+  return {
+    waiting: waiting.count ?? 0,
+    listed: (listed.rows as { listed_at: string; listed_by: string | null }[]).map((r) => ({ at: r.listed_at, by: r.listed_by })),
+    regraded: (changes.rows as { reason: string }[]).filter((c) => c.reason === "amazon_check").length,
+    repaired: (changes.rows as { reason: string }[]).filter((c) => c.reason === "repair").length,
+  };
 }

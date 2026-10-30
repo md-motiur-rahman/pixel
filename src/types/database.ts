@@ -9,7 +9,8 @@ export type Role =
   | "data_entry"
   | "master_stocker"
   | "repair"
-  | "clearance";
+  | "clearance"
+  | "amazon";
 export type UnitStatus = "in_stock" | "picked" | "shipped";
 
 type Table<Row, Insert, Update = Partial<Insert>> = {
@@ -49,7 +50,7 @@ export interface Database {
         { model_id?: string; color?: string }
       >;
       grades: Table<
-        { id: string; code: string; label: string; sort_order: number },
+        { id: string; code: string; label: string; sort_order: number; /** False for Repair (D) and Clearance (E). */ in_inventory: boolean },
         { code: string; label: string; sort_order?: number },
         { code?: string; label?: string; sort_order?: number }
       >;
@@ -79,6 +80,9 @@ export interface Database {
           picked_at: string | null;
           /** What the item cost, entered by the tester. Null for items tested before this was recorded. */
           buying_price: number | null;
+          /** The Amazon lister who checked the item, and when. */
+          checked_by: string | null;
+          checked_at: string | null;
         },
         {
           sku_line_id: string;
@@ -109,6 +113,32 @@ export interface Database {
           /** Null while the item is on hold, waiting for the master stocker. */
           accepted_at: string | null;
           accepted_by: string | null;
+        },
+        Record<string, never>,
+        Record<string, never>
+      >;
+      /** Items to list on Amazon (listed_at null) and already listed. */
+      amazon_queue: Table<
+        {
+          unit_id: string;
+          added_at: string;
+          source: "tested" | "repaired";
+          listed_at: string | null;
+          listed_by: string | null;
+        },
+        Record<string, never>,
+        Record<string, never>
+      >;
+      /** Every grade change of an item: A → B, who, when, why. */
+      grade_changes: Table<
+        {
+          id: string;
+          unit_id: string;
+          from_grade: string;
+          to_grade: string;
+          changed_by: string | null;
+          changed_at: string;
+          reason: "edit" | "amazon_check" | "repair";
         },
         Record<string, never>,
         Record<string, never>
@@ -184,6 +214,14 @@ export interface Database {
         Returns: undefined;
       };
       refuse_master_stock: { Args: { p_unit_id: string }; Returns: undefined };
+      amazon_check_unit: {
+        Args: { p_unit_id: string; p_grade_id: string | null };
+        Returns: { regraded: boolean; grade: string; listed: boolean };
+      };
+      finish_repair: {
+        Args: { p_unit_id: string; p_grade_id: string };
+        Returns: { grade: string; in_inventory: boolean };
+      };
       empty_inventory: { Args: { p_admin_id: string }; Returns: number };
       delete_inventory_entry: {
         Args: { p_admin_id: string; p_variant_id: string };

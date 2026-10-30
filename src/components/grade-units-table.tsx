@@ -2,22 +2,124 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Printer } from "lucide-react";
-import { Card, Input, Message } from "@/components/ui";
+import { useRouter } from "next/navigation";
+import { CheckCircle2, Printer } from "lucide-react";
+import { Button, Card, Input, Message } from "@/components/ui";
 import { ColorPill } from "@/components/color-pill";
+import { ConfirmDialog } from "@/components/confirm-dialog";
+import { cn } from "@/lib/cn";
 import type { GradeUnit } from "@/lib/grade-units";
+import type { GradeOption } from "@/app/(app)/amazon/actions";
+import { finishRepair } from "@/app/(app)/repair/actions";
 
-// The Repair and Clearance pages: every in-stock item of that grade. To move a
-// item out (e.g. repaired → Grade A), regrade it in Tester → Find a saved item.
+// "Repaired" on one item: pick the grade it is now, confirm, then print its new label.
+function RepairDone({ unit, grades }: { unit: GradeUnit; grades: GradeOption[] }) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [gradeId, setGradeId] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const chosen = grades.find((g) => g.id === gradeId);
+
+  async function submit() {
+    if (!gradeId) {
+      setError("Pick the grade the item is now.");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const result = await finishRepair(unit.id, gradeId);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      router.push(`/label/${unit.id}?from=repair&regraded=${encodeURIComponent(result.grade)}`);
+    } catch {
+      setError("Could not save — check your connection and try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+      <Button
+        type="button"
+        size="sm"
+        variant="secondary"
+        onClick={() => {
+          setGradeId("");
+          setError(null);
+          setOpen(true);
+        }}
+      >
+        <CheckCircle2 aria-hidden="true" />
+        Repaired
+      </Button>
+      <ConfirmDialog
+        open={open}
+        onOpenChange={setOpen}
+        title="Repair finished — what grade is it now?"
+        description={
+          <>
+            <p>
+              {unit.brand} {unit.model} ({unit.color})
+              {unit.serialNumber ? `, serial ${unit.serialNumber}` : ""}.
+            </p>
+            <div role="radiogroup" aria-label="New grade" className="grid grid-cols-2 gap-2 pt-1">
+              {grades.map((g) => (
+                <button
+                  key={g.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={gradeId === g.id}
+                  onClick={() => setGradeId(g.id)}
+                  className={cn(
+                    "min-h-11 rounded-xl px-3 text-left text-sm font-medium ring-1 outline-none transition-colors ring-inset focus-visible:ring-2 focus-visible:ring-accent/60",
+                    gradeId === g.id ? "bg-accent/12 text-accent ring-accent/40" : "text-fg ring-line hover:bg-glass-hover"
+                  )}
+                >
+                  {g.label}
+                </button>
+              ))}
+            </div>
+            {chosen && (
+              <p className="text-xs">
+                {chosen.inInventory
+                  ? "It goes back into the inventory (its stock count goes up) and onto the Amazon list."
+                  : "It moves to Clearance."}{" "}
+                Next you&rsquo;ll print its new label.
+              </p>
+            )}
+          </>
+        }
+        confirmLabel="Save & print label"
+        busy={busy}
+        error={error}
+        onConfirm={() => void submit()}
+      />
+    </>
+  );
+}
+
+// The Repair and Clearance pages: every in-stock item of that grade. On Repair,
+// "Repaired" grades a fixed item and moves it back into the inventory.
 export function GradeUnitsTable({
   title,
   description,
   gradeLabel,
+  labelFrom,
+  repairGrades,
   result,
 }: {
   title: string;
   description: string;
   gradeLabel: string;
+  /** Where the label page's back button returns to. */
+  labelFrom: "repair" | "clearance";
+  /** Repair page only: the grades a repaired item can be given. */
+  repairGrades?: GradeOption[];
   result: { ok: true; units: GradeUnit[] } | { ok: false; error: string };
 }) {
   const [query, setQuery] = useState("");
@@ -73,6 +175,11 @@ export function GradeUnitsTable({
                   <th className="px-3.5 py-2.5 font-medium">Serial</th>
                   <th className="px-3.5 py-2.5 font-medium">Note</th>
                   <th className="px-3.5 py-2.5 font-medium">Tested</th>
+                  {repairGrades && (
+                    <th className="px-2 py-2.5">
+                      <span className="sr-only">Repair</span>
+                    </th>
+                  )}
                   <th className="w-12 px-2 py-2.5">
                     <span className="sr-only">Label</span>
                   </th>
@@ -94,9 +201,14 @@ export function GradeUnitsTable({
                       {new Date(u.testedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
                       {u.testerName ? ` · ${u.testerName}` : ""}
                     </td>
+                    {repairGrades && (
+                      <td className="px-2 py-2 text-right">
+                        <RepairDone unit={u} grades={repairGrades} />
+                      </td>
+                    )}
                     <td className="px-2 py-2 text-right">
                       <Link
-                        href={`/tester/print/${u.id}`}
+                        href={`/label/${u.id}?from=${labelFrom}`}
                         title="Reprint label"
                         aria-label={`Reprint label for ${u.brand} ${u.model}`}
                         className="inline-flex size-8 items-center justify-center rounded-lg text-fg-subtle transition-colors hover:bg-glass-hover hover:text-fg"
@@ -108,7 +220,7 @@ export function GradeUnitsTable({
                 ))}
                 {units.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-3.5 py-8 text-center text-fg-subtle">
+                    <td colSpan={repairGrades ? 8 : 7} className="px-3.5 py-8 text-center text-fg-subtle">
                       {query ? "No matches." : `No items in ${title.toLowerCase()} right now.`}
                     </td>
                   </tr>

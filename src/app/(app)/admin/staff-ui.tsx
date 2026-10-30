@@ -28,6 +28,7 @@ const ROLE_TONE: Record<Role, string> = {
   master_stocker: "border-accent/20 bg-accent/5 text-accent",
   repair: "border-danger-line bg-danger-soft text-danger",
   clearance: "border-warn-line bg-warn-soft text-warn",
+  amazon: "border-success-line bg-success-soft text-success",
 };
 
 export function RoleBadge({ role }: { role: Role }) {

@@ -12,6 +12,7 @@ export const ALL_ROLES: Role[] = [
   "master_stocker",
   "repair",
   "clearance",
+  "amazon",
 ];
 
 export const ROLE_LABEL: Record<Role, string> = {
@@ -23,6 +24,7 @@ export const ROLE_LABEL: Record<Role, string> = {
   master_stocker: "Master stocker",
   repair: "Repair",
   clearance: "Clearance",
+  amazon: "Amazon lister",
 };
 
 // Where each role lands, and the URL section it owns.
@@ -35,6 +37,7 @@ export const ROLE_HOME: Record<Role, string> = {
   master_stocker: "/master-stock",
   repair: "/repair",
   clearance: "/clearance",
+  amazon: "/amazon",
 };
 
 export function isRole(value: unknown): value is Role {
@@ -54,9 +57,20 @@ export function normalizeRoles(roles: unknown, role: unknown): Role[] {
   return isRole(role) ? [role] : [];
 }
 
-/** Admins can use every section; everyone else only the roles they hold. */
+// Roles that also come with another role's work: anyone with master stock
+// access can list on Amazon too. Keep in step with has_any_role() callers in
+// the database (supabase/migration_17).
+const ALSO_GRANTED_BY: Partial<Record<Role, Role[]>> = {
+  amazon: ["master_stocker"],
+};
+
+/** Admins can use every section; everyone else the roles they hold (and what those include). */
 export function hasRole(roles: Role[], role: Role): boolean {
-  return roles.includes("admin") || roles.includes(role);
+  return (
+    roles.includes("admin") ||
+    roles.includes(role) ||
+    (ALSO_GRANTED_BY[role] ?? []).some((granting) => roles.includes(granting))
+  );
 }
 
 /** Where to send someone by default: admin's home if they're an admin, else their first role's. */

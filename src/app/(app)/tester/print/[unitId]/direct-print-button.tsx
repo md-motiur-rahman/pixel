@@ -13,6 +13,7 @@ export function DirectPrintButton({
   labelLine1,
   labelLine2,
   labelLine3,
+  labelLine4 = "",
   serialNumber,
 }: {
   unitId: string;
@@ -20,6 +21,7 @@ export function DirectPrintButton({
   labelLine1: string;
   labelLine2: string;
   labelLine3: string;
+  labelLine4?: string;
   serialNumber: string;
 }) {
   const [status, setStatus] = useState<Status>("idle");
@@ -88,7 +90,7 @@ export function DirectPrintButton({
 
     setStatus("printing");
     try {
-      const zpl = buildLabelZpl({ unitId, brandName, labelLine1, labelLine2, labelLine3, serialNumber });
+      const zpl = buildLabelZpl({ unitId, brandName, labelLine1, labelLine2, labelLine3, labelLine4, serialNumber });
       await qz.printZpl(printerName, zpl);
     } catch {
       if (remembered) {
