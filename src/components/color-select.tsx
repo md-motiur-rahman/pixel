@@ -14,16 +14,22 @@ export function ColorSelect({
   onValueChange,
   id,
   disabled,
+  suggested = [],
 }: {
   value: string;
   onValueChange: (value: string) => void;
   id?: string;
   disabled?: boolean;
+  /** Colours to list first (e.g. the ones this model is known in), then a divider, then the rest. */
+  suggested?: string[];
 }) {
+  const selected = findColor(value)?.name ?? value;
+  const top = [...new Set(suggested.map((c) => findColor(c)?.name ?? c.trim()).filter(Boolean))];
+  const inTop = new Set(top.map((c) => c.toLowerCase()));
+  const rest = CAMERA_COLORS.map((c) => c.name).filter((name) => !inTop.has(name.toLowerCase()));
   // A saved item can carry an older, free-typed colour that isn't in the list —
   // keep it selectable so opening and re-saving doesn't silently change it.
-  const legacy = value && !findColor(value) ? value : null;
-  const selected = findColor(value)?.name ?? value;
+  const legacy = value && !findColor(value) && !inTop.has(value.toLowerCase()) ? value : null;
 
   return (
     <Select.Root value={selected} onValueChange={onValueChange} disabled={disabled}>
@@ -47,9 +53,29 @@ export function ColorSelect({
         >
           <Select.Viewport className="max-h-[min(22rem,var(--radix-select-content-available-height))] overflow-y-auto p-1.5">
             {legacy && <ColorItem value={legacy} />}
-            {CAMERA_COLORS.map((c) => (
-              <ColorItem key={c.name} value={c.name} />
-            ))}
+            {top.length > 0 ? (
+              <>
+                <Select.Group>
+                  <Select.Label className="px-2.5 pt-1 pb-1.5 text-[11px] font-medium text-fg-subtle">
+                    This model&rsquo;s colours
+                  </Select.Label>
+                  {top.map((name) => (
+                    <ColorItem key={name} value={name} />
+                  ))}
+                </Select.Group>
+                <Select.Separator className="mx-1 my-1.5 h-px bg-line" />
+                <Select.Group>
+                  <Select.Label className="px-2.5 pt-1 pb-1.5 text-[11px] font-medium text-fg-subtle">
+                    Other colours
+                  </Select.Label>
+                  {rest.map((name) => (
+                    <ColorItem key={name} value={name} />
+                  ))}
+                </Select.Group>
+              </>
+            ) : (
+              rest.map((name) => <ColorItem key={name} value={name} />)
+            )}
           </Select.Viewport>
         </Select.Content>
       </Select.Portal>

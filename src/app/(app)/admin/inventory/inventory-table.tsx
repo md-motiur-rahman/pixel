@@ -28,6 +28,53 @@ function totalOf(row: InventoryRow) {
   return Object.values(row.quantities).reduce((sum, qty) => sum + qty, 0);
 }
 
+// The row's ASINs (main one first) with an edit button — or "Add ASIN" when it has none.
+function AsinCell({ row, onEdit }: { row: InventoryRow; onEdit: () => void }) {
+  if (row.asins.length === 0) {
+    return (
+      <Button
+        type="button"
+        size="sm"
+        variant="secondary"
+        onClick={onEdit}
+        aria-label={`Add ASIN for ${rowName(row)}`}
+        className="min-h-8 border-warn-line px-2.5 text-warn"
+      >
+        <Plus aria-hidden="true" />
+        Add ASIN
+      </Button>
+    );
+  }
+  return (
+    <div className="flex items-center gap-1.5">
+      <div className="flex flex-wrap gap-1">
+        {row.asins.map((asin, i) => (
+          <span
+            key={asin}
+            title={i === 0 ? "Main ASIN" : "Extra ASIN"}
+            className={cn(
+              "rounded-md border px-1.5 py-0.5 font-mono text-xs",
+              i === 0 ? "border-line bg-glass-soft text-fg" : "border-line-soft text-fg-muted"
+            )}
+          >
+            {asin}
+          </span>
+        ))}
+      </div>
+      <Button
+        type="button"
+        size="sm"
+        variant="ghost"
+        onClick={onEdit}
+        aria-label={`Edit ASINs for ${rowName(row)}`}
+        className="min-h-8 px-2"
+      >
+        <Pencil aria-hidden="true" />
+      </Button>
+    </div>
+  );
+}
+
 export function InventoryTable({ initialRows, grades }: { initialRows: InventoryData["rows"]; grades: string[] }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
@@ -189,13 +236,25 @@ export function InventoryTable({ initialRows, grades }: { initialRows: Inventory
     }
   }
 
+  function openAsin(row: InventoryRow) {
+    setNotice(null);
+    setAsinRow(row);
+  }
+
+  function askDelete(row: InventoryRow) {
+    setNotice(null);
+    setDeletePassword("");
+    setDeleteError(null);
+    setDeletingRow(row);
+  }
+
   return (
-    <div className="space-y-4">
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
       <div className="flex flex-wrap items-center gap-2">
         {/* Desktop: inline search, kept small — this used to be a full-width
             bar plus a whole second row of filters, eating far more vertical
             space than a filter bar needs. */}
-        <div className="hidden sm:block sm:w-52">
+        <div className="hidden lg:block lg:w-52">
           <Input
             type="search"
             name="inventory-search"
@@ -209,7 +268,7 @@ export function InventoryTable({ initialRows, grades }: { initialRows: Inventory
         </div>
 
         {/* Desktop: filters inline, same compact height as the search box. */}
-        <div className="hidden flex-wrap items-center gap-2 sm:flex" role="group" aria-label="Filters">
+        <div className="hidden flex-wrap items-center gap-2 lg:flex" role="group" aria-label="Filters">
           <div className="w-32">
             <Select
               aria-label="Filter by brand"
@@ -267,7 +326,7 @@ export function InventoryTable({ initialRows, grades }: { initialRows: Inventory
               <option value="out">Out of stock</option>
             </Select>
           </div>
-          <div className="w-36">
+          <div className="w-40">
             <Select
               aria-label="Filter by ASIN"
               value={filters.asin}
@@ -295,12 +354,12 @@ export function InventoryTable({ initialRows, grades }: { initialRows: Inventory
           )}
         </div>
 
-        {/* Mobile: one button instead of a full search bar plus five select
-            boxes stacked down the page — tapping it opens all of that in a
-            sheet instead. */}
+        {/* Phones and tablets: one button instead of a full search bar plus
+            five select boxes stacked down the page — tapping it opens all of
+            that in a sheet instead. */}
         <Dialog.Root open={filterSheetOpen} onOpenChange={setFilterSheetOpen}>
           <Dialog.Trigger asChild>
-            <Button type="button" variant="secondary" size="sm" className="sm:hidden">
+            <Button type="button" variant="secondary" size="sm" className="lg:hidden">
               <SlidersHorizontal aria-hidden="true" />
               Search &amp; filter
               {query.trim() || activeFilters > 0 ? (
@@ -415,13 +474,16 @@ export function InventoryTable({ initialRows, grades }: { initialRows: Inventory
             }}
           >
             <Eraser aria-hidden="true" />
-            Zero all stock
+            <span className="hidden sm:inline">Zero all stock</span>
+            <span className="sm:hidden">Zero</span>
           </Button>
           <Button
             type="button"
             size="sm"
             variant="destructive"
             disabled={totalInStock === 0}
+            aria-label="Empty inventory"
+            title="Empty inventory"
             onClick={() => {
               setEmptyPassword("");
               setEmptyError(null);
@@ -436,11 +498,82 @@ export function InventoryTable({ initialRows, grades }: { initialRows: Inventory
 
       {notice && <Message variant="success">{notice}</Message>}
 
-      <Card className="overflow-hidden">
-        {/* max-h + overflow-y-auto only kicks in once the rows actually
-            don't fit — if a page of results is short, this box just shrinks
-            to its content and the page scrolls normally instead. */}
-        <div className="max-h-[65dvh] overflow-auto">
+      {/* Phones and tablets: one card per model + colour instead of a wide
+          table to scroll sideways through. */}
+      <ul className="grid gap-2.5 sm:grid-cols-2 lg:hidden">
+        {paginated.map((row) => {
+          const total = totalOf(row);
+          return (
+            <li key={row.variantId}>
+              <Card className="p-3.5">
+                <div className="flex items-start gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-xs text-fg-muted">{row.brand}</p>
+                    <p className="font-semibold break-words text-fg">{row.model}</p>
+                    <div className="mt-1.5">
+                      <ColorPill color={row.color} />
+                    </div>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className={cn("text-xl font-semibold tabular-nums", total > 0 ? "text-fg" : "text-fg-subtle")}>
+                      {total}
+                    </p>
+                    <p className="text-[11px] text-fg-subtle">in stock</p>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => askDelete(row)}
+                    aria-label={`Delete ${rowName(row)}`}
+                    title="Delete this entry"
+                    className="-mt-1 -mr-1.5 min-h-8 shrink-0 px-2 text-fg-subtle hover:text-danger"
+                  >
+                    <Trash2 aria-hidden="true" />
+                  </Button>
+                </div>
+
+                <dl className="mt-3 grid grid-cols-[repeat(auto-fill,minmax(3.25rem,1fr))] gap-1.5">
+                  {grades.map((grade) => {
+                    const qty = row.quantities[grade] ?? 0;
+                    return (
+                      <div
+                        key={grade}
+                        className={cn(
+                          "rounded-lg border px-2 py-1 text-center",
+                          qty > 0 ? "border-line bg-glass-soft" : "border-line-soft"
+                        )}
+                      >
+                        <dt className="text-[10px] font-medium tracking-wider text-fg-subtle uppercase">{grade}</dt>
+                        <dd className={cn("text-sm tabular-nums", qty > 0 ? "font-semibold text-fg" : "text-fg-subtle")}>
+                          {qty > 0 ? qty : "–"}
+                        </dd>
+                      </div>
+                    );
+                  })}
+                </dl>
+
+                <div className="mt-3 flex items-center gap-2 border-t border-line-soft pt-3">
+                  <span className="text-xs text-fg-subtle">ASIN</span>
+                  <AsinCell row={row} onEdit={() => openAsin(row)} />
+                </div>
+              </Card>
+            </li>
+          );
+        })}
+        {filtered.length === 0 && (
+          <li>
+            <Card className="px-3.5 py-8 text-center text-sm text-fg-subtle">
+              {query || activeFilters > 0 ? "No matches." : "No inventory yet."}
+            </Card>
+          </li>
+        )}
+      </ul>
+
+      {/* Desktop: the table fills the rest of the screen and scrolls inside
+          itself, so the header row, filters and paging stay in view. */}
+      <Card className="hidden min-h-0 flex-1 flex-col overflow-hidden lg:flex">
+        <div className="min-h-0 flex-1 overflow-auto">
           <table className="w-full min-w-180 text-sm">
             <thead className="sticky top-0 z-10 border-b border-line-soft bg-field text-left text-xs uppercase tracking-wider text-fg-subtle">
               <tr>
@@ -478,64 +611,14 @@ export function InventoryTable({ initialRows, grades }: { initialRows: Inventory
                     );
                   })}
                   <td className="px-3.5 py-2">
-                    {row.asins.length === 0 ? (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => {
-                          setNotice(null);
-                          setAsinRow(row);
-                        }}
-                        aria-label={`Add ASIN for ${rowName(row)}`}
-                        className="min-h-8 border-warn-line px-2.5 text-warn"
-                      >
-                        <Plus aria-hidden="true" />
-                        Add ASIN
-                      </Button>
-                    ) : (
-                      <div className="flex items-center gap-1.5">
-                        <div className="flex flex-wrap gap-1">
-                          {row.asins.map((asin, i) => (
-                            <span
-                              key={asin}
-                              title={i === 0 ? "Main ASIN" : "Extra ASIN"}
-                              className={cn(
-                                "rounded-md border px-1.5 py-0.5 font-mono text-xs",
-                                i === 0 ? "border-line bg-glass-soft text-fg" : "border-line-soft text-fg-muted"
-                              )}
-                            >
-                              {asin}
-                            </span>
-                          ))}
-                        </div>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => {
-                            setNotice(null);
-                            setAsinRow(row);
-                          }}
-                          aria-label={`Edit ASINs for ${rowName(row)}`}
-                          className="min-h-8 px-2"
-                        >
-                          <Pencil aria-hidden="true" />
-                        </Button>
-                      </div>
-                    )}
+                    <AsinCell row={row} onEdit={() => openAsin(row)} />
                   </td>
                   <td className="px-2 py-2 text-right">
                     <Button
                       type="button"
                       size="sm"
                       variant="ghost"
-                      onClick={() => {
-                        setNotice(null);
-                        setDeletePassword("");
-                        setDeleteError(null);
-                        setDeletingRow(row);
-                      }}
+                      onClick={() => askDelete(row)}
                       aria-label={`Delete ${rowName(row)}`}
                       title="Delete this entry"
                       className="min-h-8 px-2 text-fg-subtle hover:text-danger"
@@ -558,12 +641,12 @@ export function InventoryTable({ initialRows, grades }: { initialRows: Inventory
       </Card>
 
       {filtered.length > 0 && (
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-sm text-fg-muted">
             <span>
               {rangeStart}–{rangeEnd} of {filtered.length}
             </span>
-            <div className="w-24">
+            <div className="w-28">
               <Select
                 aria-label="Rows per page"
                 value={pageSize}

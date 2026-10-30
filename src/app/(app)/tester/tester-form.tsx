@@ -5,7 +5,7 @@ import { useRef, useState } from "react";
 import { Combobox, type ComboboxOption } from "@/components/combobox";
 import { SerialInput } from "@/components/serial-input";
 import { ColorSelect } from "@/components/color-select";
-import { ColorPill } from "@/components/color-pill";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { listModelAsins, listModelColours, searchBrands, searchModels } from "./search-actions";
 import { createTestedUnit } from "./actions";
 import { Button, Field, Input, Message, Select } from "@/components/ui";
@@ -32,6 +32,8 @@ export function TesterForm({ grades }: { grades: Grade[] }) {
   // Colours this model is already known in (data entry or earlier items).
   const [knownColours, setKnownColours] = useState<string[]>([]);
   const coloursSeqRef = useRef(0);
+  // A colour this model isn't known in, waiting for the tester to confirm it.
+  const [unusualColour, setUnusualColour] = useState<string | null>(null);
 
   async function loadColours(modelId: string | null) {
     const seq = ++coloursSeqRef.current;
@@ -45,9 +47,20 @@ export function TesterForm({ grades }: { grades: Grade[] }) {
     }
   }
 
-  function pickColour(next: string) {
+  function applyColour(next: string) {
     setColor(next);
     void loadAsins(model?.id ?? null, next);
+  }
+
+  // Picking a colour data entry hasn't entered for this model is usually a slip —
+  // ask first. (A model with no colours on file yet takes any colour.)
+  function pickColour(next: string) {
+    const known = knownColours.some((c) => c.toLowerCase() === next.toLowerCase());
+    if (knownColours.length > 0 && !known) {
+      setUnusualColour(next);
+      return;
+    }
+    applyColour(next);
   }
 
   async function loadAsins(modelId: string | null, forColor: string) {
@@ -149,30 +162,31 @@ export function TesterForm({ grades }: { grades: Grade[] }) {
         search={(q) => (brand?.id ? searchModels(brand.id, q) : Promise.resolve([]))}
       />
 
-      <Field label="Color">
-        <ColorSelect value={color} onValueChange={pickColour} />
+      <Field
+        label="Color"
+        hint={knownColours.length > 0 ? "This model's colours are listed first." : undefined}
+      >
+        <ColorSelect value={color} onValueChange={pickColour} suggested={knownColours} />
       </Field>
-      {knownColours.length > 0 && (
-        <div className="-mt-3">
-          <p className="mb-1.5 text-xs text-fg-subtle">This model comes in:</p>
-          <div className="flex flex-wrap gap-1.5">
-            {knownColours.map((c) => (
-              <button
-                key={c}
-                type="button"
-                aria-pressed={c.toLowerCase() === color.toLowerCase()}
-                onClick={() => pickColour(c)}
-                className={
-                  "rounded-full p-0.5 outline-none transition focus-visible:ring-2 focus-visible:ring-accent/60 " +
-                  (c.toLowerCase() === color.toLowerCase() ? "ring-2 ring-accent" : "hover:opacity-80")
-                }
-              >
-                <ColorPill color={c} />
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        open={unusualColour !== null}
+        onOpenChange={(open) => !open && setUnusualColour(null)}
+        title={`Use ${unusualColour ?? ""}?`}
+        description={
+          <>
+            <p>
+              {effectiveBrandName} {effectiveModelName} isn&rsquo;t on file in {unusualColour ?? "this colour"} — data
+              entry has it in {knownColours.join(", ")}.
+            </p>
+            <p>Use {unusualColour} only if the item really is that colour.</p>
+          </>
+        }
+        confirmLabel={`Yes, it's ${unusualColour ?? ""}`}
+        onConfirm={() => {
+          if (unusualColour) applyColour(unusualColour);
+          setUnusualColour(null);
+        }}
+      />
 
       {asinOptions.length > 0 && (
         <Field label="ASIN" hint="ASINs data entry added for this model in this colour.">
